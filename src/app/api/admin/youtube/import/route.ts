@@ -963,16 +963,17 @@ export async function POST(request: NextRequest) {
     // Supabase mode
     const { supabase } = await import("@/lib/supabase");
 
-    // Get the video
+    // Get the video (check both id and video_id to handle different formats)
     const { data: video, error: videoError } = await supabase
       .from("videos")
       .select("*")
       .eq("tenant_id", tenantId)
-      .eq("id", videoId)
+      .or(`id.eq.${videoId},video_id.eq.${videoId}`)
       .single();
 
     if (videoError || !video) {
-      return NextResponse.json({ error: "Video not found" }, { status: 404 });
+      console.error("Video not found error:", videoError, "videoId:", videoId, "tenantId:", tenantId);
+      return NextResponse.json({ error: "Video not found", details: videoError?.message }, { status: 404 });
     }
 
     if (video.is_imported) {
@@ -1041,8 +1042,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("YouTube import error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json(
-      { error: "Failed to import video transcript" },
+      { error: "Failed to import video transcript", details: errorMessage },
       { status: 500 }
     );
   }
