@@ -2,15 +2,24 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 let _supabase: SupabaseClient | null = null;
 
+// Support both NEXT_PUBLIC_ and non-prefixed env vars
+function getSupabaseUrl() {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+}
+
+function getSupabaseAnonKey() {
+  return process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+}
+
 function getSupabaseClient(): SupabaseClient {
   if (_supabase) return _supabase;
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseAnonKey = getSupabaseAnonKey();
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error(
-      "Supabase credentials not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables."
+      "Supabase credentials not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables."
     );
   }
 
@@ -25,16 +34,16 @@ export const supabase = new Proxy({} as SupabaseClient, {
   },
 });
 
-// Server-side client with service role for admin operations
+// Server-side client - uses service role key if available, otherwise anon key
 export function createServerClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || getSupabaseAnonKey();
 
-  if (!supabaseUrl || !supabaseServiceKey) {
+  if (!supabaseUrl || !supabaseKey) {
     throw new Error(
-      "Supabase service credentials not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables."
+      "Supabase credentials not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables."
     );
   }
 
-  return createClient(supabaseUrl, supabaseServiceKey);
+  return createClient(supabaseUrl, supabaseKey);
 }
