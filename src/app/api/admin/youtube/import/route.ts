@@ -964,6 +964,8 @@ export async function POST(request: NextRequest) {
     const { createServerClient } = await import("@/lib/supabase");
     const supabase = createServerClient();
 
+    console.log("Import request - tenantId:", tenantId, "videoId:", videoId);
+
     // Get the video (check both id and video_id to handle different formats)
     const { data: video, error: videoError } = await supabase
       .from("videos")
@@ -977,6 +979,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Video not found", details: videoError?.message }, { status: 404 });
     }
 
+    console.log("Found video:", video.id, "video_id:", video.video_id, "title:", video.title);
+
     if (video.is_imported) {
       return NextResponse.json(
         { error: "Video already imported" },
@@ -985,10 +989,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Try to fetch real transcript, fall back to mock if unavailable
+    console.log("Fetching transcript for video_id:", video.video_id);
     let transcript = await fetchYouTubeTranscript(video.video_id);
     if (!transcript) {
+      console.log("Real transcript failed, using mock transcript");
       transcript = getMockTranscript(video.video_id, video.title);
     }
+    console.log("Transcript obtained, wordCount:", transcript.wordCount);
 
     // Get existing videos for similar videos matching
     const { data: existingVideosData } = await supabase
@@ -1024,28 +1031,40 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (kbError) throw kbError;
+    if (kbError) {
+      console.error("Failed to create knowledge item:", kbError);
+      throw kbError;
+    }
+    console.log("Knowledge item created:", knowledgeItem.id);
 
     // Update video as imported with transcript and AI analysis
     // Use video.id (the database UUID) not videoId (which might be the YouTube video_id)
-    const { error: updateError } = await supabase
+    console.log("Updating video with transcript and AI analysis, video.id:", video.id);
+    const { error: updateError, data: updateData } = await supabase
       .from("videos")
       .update({
         is_imported: true,
         transcript: transcript,
         ai_analysis: aiAnalysis,
       })
-      .eq("id", video.id);
+      .eq("id", video.id)
+      .select();
 
     if (updateError) {
       console.error("Failed to update video:", updateError);
       throw updateError;
     }
+    console.log("Video updated successfully, rows affected:", updateData?.length || 0);
 
     return NextResponse.json({
       success: true,
       knowledge_item: knowledgeItem,
       video_id: video.id,
+      debug: {
+        transcriptWordCount: transcript.wordCount,
+        aiAnalysisTopics: aiAnalysis.topicTags?.length || 0,
+        updateRowsAffected: updateData?.length || 0,
+      }
     });
   } catch (error) {
     console.error("YouTube import error:", error);
