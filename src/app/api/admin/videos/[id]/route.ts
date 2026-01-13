@@ -196,6 +196,8 @@ export async function GET(
     const { createServerClient } = await import("@/lib/supabase");
     const supabase = createServerClient();
 
+    console.log("Fetching video:", { videoId, tenantId });
+
     const { data: video, error: videoError } = await supabase
       .from("videos")
       .select("*")
@@ -204,7 +206,12 @@ export async function GET(
       .single();
 
     if (videoError || !video) {
-      return NextResponse.json({ error: "Video not found" }, { status: 404 });
+      console.error("Video not found:", { videoId, tenantId, error: videoError });
+      return NextResponse.json({
+        error: "Video not found",
+        details: videoError?.message,
+        searchedFor: { videoId, tenantId }
+      }, { status: 404 });
     }
 
     // Get all imported videos to calculate topic frequency

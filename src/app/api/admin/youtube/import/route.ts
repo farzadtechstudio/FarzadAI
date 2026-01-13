@@ -1027,14 +1027,20 @@ export async function POST(request: NextRequest) {
     if (kbError) throw kbError;
 
     // Update video as imported with transcript and AI analysis
-    await supabase
+    // Use video.id (the database UUID) not videoId (which might be the YouTube video_id)
+    const { error: updateError } = await supabase
       .from("videos")
       .update({
         is_imported: true,
         transcript: transcript,
         ai_analysis: aiAnalysis,
       })
-      .eq("id", videoId);
+      .eq("id", video.id);
+
+    if (updateError) {
+      console.error("Failed to update video:", updateError);
+      throw updateError;
+    }
 
     return NextResponse.json({
       success: true,
