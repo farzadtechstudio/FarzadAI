@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 import { USE_SUPABASE } from "@/lib/config";
 import { loadSetupConfig } from "@/lib/setup-loader";
+
+const JWT_SECRET = process.env.JWT_SECRET || "local-dev-secret-change-in-production";
+
+interface JWTPayload {
+  userId: string;
+  email: string;
+  role: string;
+  tenantId: string;
+}
 
 interface TranscriptSegment {
   text: string;
@@ -86,19 +96,19 @@ export async function GET(
   try {
     const { id: videoId } = await params;
 
-    // Get tenant ID from query param, session cookie, or default to local
+    // Get tenant ID from query param, JWT auth token, or default to local
     let tenantId = request.nextUrl.searchParams.get("tenantId");
 
     if (!tenantId) {
-      // Try to get from session cookie
+      // Try to get from auth_token JWT cookie
       const cookieStore = await cookies();
-      const sessionCookie = cookieStore.get("session");
-      if (sessionCookie?.value) {
+      const authToken = cookieStore.get("auth_token");
+      if (authToken?.value) {
         try {
-          const session = JSON.parse(sessionCookie.value);
-          tenantId = session.tenantId;
+          const decoded = jwt.verify(authToken.value, JWT_SECRET) as JWTPayload;
+          tenantId = decoded.tenantId;
         } catch {
-          // Ignore parse errors
+          // Ignore JWT errors
         }
       }
     }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 import { USE_SUPABASE } from "@/lib/config";
 import { loadSetupConfig, clearConfigCache } from "@/lib/setup-loader";
 import { promises as fs } from "fs";
@@ -9,6 +10,14 @@ import { promisify } from "util";
 import os from "os";
 
 const execAsync = promisify(exec);
+const JWT_SECRET = process.env.JWT_SECRET || "local-dev-secret-change-in-production";
+
+interface JWTPayload {
+  userId: string;
+  email: string;
+  role: string;
+  tenantId: string;
+}
 
 interface TranscriptSegment {
   text: string;
@@ -871,23 +880,26 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     let { tenantId, videoId, modified_by, modified_by_initials, forceReimport } = body;
 
-    // If tenantId not provided, try to get from session cookie
+    // If tenantId not provided, try to get from auth_token JWT cookie
     if (!tenantId) {
       const cookieStore = await cookies();
-      const sessionCookie = cookieStore.get("session");
-      if (sessionCookie?.value) {
+      const authToken = cookieStore.get("auth_token");
+      if (authToken?.value) {
         try {
-          const session = JSON.parse(sessionCookie.value);
-          tenantId = session.tenantId;
-        } catch {
-          // Ignore parse errors
+          const decoded = jwt.verify(authToken.value, JWT_SECRET) as JWTPayload;
+          tenantId = decoded.tenantId;
+          console.log("Got tenantId from JWT:", tenantId);
+        } catch (err) {
+          console.error("JWT verification failed:", err);
         }
       }
     }
 
+    console.log("Import request - tenantId:", tenantId, "videoId:", videoId, "forceReimport:", forceReimport);
+
     if (!tenantId || !videoId) {
       return NextResponse.json(
-        { error: "Tenant ID and video ID required" },
+        { error: "Tenant ID and video ID required", debug: { tenantId, videoId } },
         { status: 400 }
       );
     }
