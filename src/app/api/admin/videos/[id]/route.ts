@@ -193,7 +193,8 @@ export async function GET(
     }
 
     // Supabase mode
-    const { supabase } = await import("@/lib/supabase");
+    const { createServerClient } = await import("@/lib/supabase");
+    const supabase = createServerClient();
 
     const { data: video, error: videoError } = await supabase
       .from("videos")

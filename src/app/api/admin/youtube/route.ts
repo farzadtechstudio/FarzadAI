@@ -65,7 +65,8 @@ export async function GET(request: NextRequest) {
 
   // Supabase mode
   try {
-    const { supabase } = await import("@/lib/supabase");
+    const { createServerClient } = await import("@/lib/supabase");
+    const supabase = createServerClient();
 
     const [settingsResult, videosResult] = await Promise.all([
       supabase
@@ -119,7 +120,8 @@ export async function PUT(request: NextRequest) {
     }
 
     // Supabase mode
-    const { supabase } = await import("@/lib/supabase");
+    const { createServerClient } = await import("@/lib/supabase");
+    const supabase = createServerClient();
 
     const updateData: Record<string, string> = {
       tenant_id: tenantId,
@@ -131,13 +133,25 @@ export async function PUT(request: NextRequest) {
       updateData.api_key = api_key;
     }
 
-    const { error } = await supabase.from("tenant_youtube_settings").upsert(updateData);
+    console.log("Attempting to upsert YouTube settings:", { tenantId, channel_id, channel_name });
 
-    if (error) throw error;
+    const { error } = await supabase
+      .from("tenant_youtube_settings")
+      .upsert(updateData, { onConflict: "tenant_id" });
+
+    if (error) {
+      console.error("Supabase upsert error:", error);
+      return NextResponse.json({
+        error: "Failed to update YouTube settings",
+        details: error.message,
+        code: error.code
+      }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("YouTube settings update error:", error);
-    return NextResponse.json({ error: "Failed to update YouTube settings" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: "Failed to update YouTube settings", details: errorMessage }, { status: 500 });
   }
 }

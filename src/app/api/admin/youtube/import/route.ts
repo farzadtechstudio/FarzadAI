@@ -961,7 +961,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Supabase mode
-    const { supabase } = await import("@/lib/supabase");
+    const { createServerClient } = await import("@/lib/supabase");
+    const supabase = createServerClient();
 
     // Get the video (check both id and video_id to handle different formats)
     const { data: video, error: videoError } = await supabase
