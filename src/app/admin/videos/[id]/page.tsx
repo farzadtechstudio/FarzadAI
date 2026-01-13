@@ -261,50 +261,104 @@ export default function VideoDetailPage() {
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [useLocalStorage, setUseLocalStorage] = useState(true);
 
-  // Load chat messages from localStorage on mount
+  // Load chat messages - try Supabase first, fall back to localStorage
   useEffect(() => {
-    if (videoId) {
-      const savedChat = localStorage.getItem(`chat-${videoId}`);
-      if (savedChat) {
-        try {
-          const parsed = JSON.parse(savedChat);
-          setChatMessages(parsed);
-        } catch (e) {
-          console.error("Failed to parse saved chat:", e);
+    if (!videoId) return;
+
+    const loadMessages = async () => {
+      try {
+        const response = await fetch(`/api/user/videos/${videoId}/messages`);
+        const data = await response.json();
+
+        if (data.useLocalStorage) {
+          setUseLocalStorage(true);
+          // Load from localStorage
+          const savedChat = localStorage.getItem(`chat-${videoId}`);
+          if (savedChat) {
+            try {
+              const parsed = JSON.parse(savedChat);
+              setChatMessages(parsed);
+            } catch (e) {
+              console.error("Failed to parse saved chat:", e);
+            }
+          }
+        } else {
+          setUseLocalStorage(false);
+          setChatMessages(data.messages || []);
+        }
+      } catch (error) {
+        console.error("Error loading messages:", error);
+        // Fall back to localStorage
+        setUseLocalStorage(true);
+        const savedChat = localStorage.getItem(`chat-${videoId}`);
+        if (savedChat) {
+          try {
+            setChatMessages(JSON.parse(savedChat));
+          } catch (e) {
+            console.error("Failed to parse saved chat:", e);
+          }
         }
       }
-    }
+    };
+
+    loadMessages();
   }, [videoId]);
 
-  // Save chat messages to localStorage whenever they change
+  // Save chat messages to localStorage only if using localStorage mode
   useEffect(() => {
-    if (videoId && chatMessages.length > 0) {
+    if (videoId && chatMessages.length > 0 && useLocalStorage) {
       localStorage.setItem(`chat-${videoId}`, JSON.stringify(chatMessages));
     }
-  }, [videoId, chatMessages]);
+  }, [videoId, chatMessages, useLocalStorage]);
 
-  // Load notes from localStorage on mount
+  // Load notes - try Supabase first, fall back to localStorage
   useEffect(() => {
-    if (videoId) {
-      const savedNotes = localStorage.getItem(`notes-${videoId}`);
-      if (savedNotes) {
-        try {
-          const parsed = JSON.parse(savedNotes);
-          setNotes(parsed);
-        } catch (e) {
-          console.error("Failed to parse saved notes:", e);
+    if (!videoId) return;
+
+    const loadNotes = async () => {
+      try {
+        const response = await fetch(`/api/user/videos/${videoId}/notes`);
+        const data = await response.json();
+
+        if (data.useLocalStorage) {
+          // Load from localStorage
+          const savedNotes = localStorage.getItem(`notes-${videoId}`);
+          if (savedNotes) {
+            try {
+              const parsed = JSON.parse(savedNotes);
+              setNotes(parsed);
+            } catch (e) {
+              console.error("Failed to parse saved notes:", e);
+            }
+          }
+        } else {
+          setNotes(data.notes || []);
+        }
+      } catch (error) {
+        console.error("Error loading notes:", error);
+        // Fall back to localStorage
+        const savedNotes = localStorage.getItem(`notes-${videoId}`);
+        if (savedNotes) {
+          try {
+            setNotes(JSON.parse(savedNotes));
+          } catch (e) {
+            console.error("Failed to parse saved notes:", e);
+          }
         }
       }
-    }
+    };
+
+    loadNotes();
   }, [videoId]);
 
-  // Save notes to localStorage whenever they change
+  // Save notes to localStorage only if using localStorage mode
   useEffect(() => {
-    if (videoId && notes.length > 0) {
+    if (videoId && notes.length > 0 && useLocalStorage) {
       localStorage.setItem(`notes-${videoId}`, JSON.stringify(notes));
     }
-  }, [videoId, notes]);
+  }, [videoId, notes, useLocalStorage]);
 
   useEffect(() => {
     if (videoId) {
@@ -319,6 +373,20 @@ export default function VideoDetailPage() {
     }
   }, [chatMessages]);
 
+  // Helper to save message to Supabase (non-blocking)
+  const saveMessageToSupabase = async (role: "user" | "assistant", content: string) => {
+    if (useLocalStorage) return;
+    try {
+      await fetch(`/api/user/videos/${videoId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, content }),
+      });
+    } catch (error) {
+      console.error("Error saving message to Supabase:", error);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!chatInput.trim() || isChatLoading) return;
 
@@ -331,6 +399,9 @@ export default function VideoDetailPage() {
     setChatMessages((prev) => [...prev, userMessage]);
     setChatInput("");
     setIsChatLoading(true);
+
+    // Save user message to Supabase (non-blocking)
+    saveMessageToSupabase("user", userMessage.content);
 
     try {
       const response = await fetch(`/api/admin/videos/${videoId}/chat`, {
@@ -355,6 +426,9 @@ export default function VideoDetailPage() {
       };
 
       setChatMessages((prev) => [...prev, assistantMessage]);
+
+      // Save assistant message to Supabase (non-blocking)
+      saveMessageToSupabase("assistant", assistantMessage.content);
     } catch (error) {
       console.error("Chat error:", error);
       const errorMessage: ChatMessage = {
@@ -442,6 +516,37 @@ export default function VideoDetailPage() {
 
       const data = await response.json();
 
+      // Save to Supabase if enabled
+      if (!useLocalStorage) {
+        try {
+          const saveResponse = await fetch(`/api/user/videos/${videoId}/notes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: action,
+              type: typeMap[action] || "summary",
+              content: data.message,
+            }),
+          });
+          const saveData = await saveResponse.json();
+          if (saveData.note) {
+            const newNote: Note = {
+              id: saveData.note.id,
+              title: saveData.note.title,
+              type: saveData.note.type,
+              content: saveData.note.content,
+              createdAt: saveData.note.createdAt,
+            };
+            setNotes((prev) => [newNote, ...prev]);
+            setSelectedNote(newNote);
+            return;
+          }
+        } catch (error) {
+          console.error("Error saving note to Supabase:", error);
+        }
+      }
+
+      // Fallback to localStorage
       const newNote: Note = {
         id: Date.now().toString(),
         title: action,
@@ -1027,9 +1132,19 @@ export default function VideoDetailPage() {
               <div className="flex items-center gap-2">
                 {chatMessages.length > 0 && (
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       setChatMessages([]);
-                      localStorage.removeItem(`chat-${videoId}`);
+                      if (useLocalStorage) {
+                        localStorage.removeItem(`chat-${videoId}`);
+                      } else {
+                        try {
+                          await fetch(`/api/user/videos/${videoId}/messages`, {
+                            method: "DELETE",
+                          });
+                        } catch (error) {
+                          console.error("Error clearing chat from Supabase:", error);
+                        }
+                      }
                     }}
                     className="px-3 py-1.5 text-xs rounded-lg hover:bg-[var(--background)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
                   >
@@ -1254,10 +1369,22 @@ export default function VideoDetailPage() {
                   Copy
                 </button>
                 <button
-                  onClick={() => {
-                    setNotes((prev) => prev.filter((n) => n.id !== selectedNote.id));
-                    localStorage.setItem(`notes-${videoId}`, JSON.stringify(notes.filter((n) => n.id !== selectedNote.id)));
+                  onClick={async () => {
+                    const noteIdToDelete = selectedNote.id;
+                    setNotes((prev) => prev.filter((n) => n.id !== noteIdToDelete));
                     setSelectedNote(null);
+
+                    if (useLocalStorage) {
+                      localStorage.setItem(`notes-${videoId}`, JSON.stringify(notes.filter((n) => n.id !== noteIdToDelete)));
+                    } else {
+                      try {
+                        await fetch(`/api/user/videos/${videoId}/notes?noteId=${noteIdToDelete}`, {
+                          method: "DELETE",
+                        });
+                      } catch (error) {
+                        console.error("Error deleting note from Supabase:", error);
+                      }
+                    }
                   }}
                   className="px-3 py-1.5 text-xs rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-500"
                 >

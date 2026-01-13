@@ -75,7 +75,53 @@ CREATE TABLE users (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Chat sessions (optional - for analytics)
+-- YouTube Videos
+CREATE TABLE videos (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+  video_id VARCHAR(50) NOT NULL,
+  title VARCHAR(500) NOT NULL,
+  thumbnail TEXT,
+  published_at TIMESTAMP WITH TIME ZONE,
+  playlist VARCHAR(255),
+  playlist_id VARCHAR(100),
+  duration VARCHAR(50),
+  view_count INTEGER,
+  channel_id VARCHAR(100),
+  channel_name VARCHAR(255),
+  is_imported BOOLEAN DEFAULT false,
+  transcript JSONB,
+  ai_analysis JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(tenant_id, video_id)
+);
+
+-- Video chat messages (per-user chat history for each video)
+CREATE TABLE video_chat_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  video_id VARCHAR(50) NOT NULL,
+  role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant')),
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Video notes (per-user generated content for each video)
+CREATE TABLE video_notes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  video_id VARCHAR(50) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  type VARCHAR(50) NOT NULL CHECK (type IN ('newsletter', 'summary', 'description', 'captions', 'quotes', 'highlights')),
+  content TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Chat sessions (optional - for main chatbot analytics)
 CREATE TABLE chat_sessions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
@@ -83,7 +129,7 @@ CREATE TABLE chat_sessions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Chat messages (optional - for analytics)
+-- Chat messages (optional - for main chatbot analytics)
 CREATE TABLE chat_messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   session_id UUID REFERENCES chat_sessions(id) ON DELETE CASCADE,
@@ -99,6 +145,13 @@ CREATE INDEX idx_knowledge_tenant ON knowledge_items(tenant_id);
 CREATE INDEX idx_users_tenant ON users(tenant_id);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_topic_cards_tenant ON tenant_topic_cards(tenant_id);
+CREATE INDEX idx_videos_tenant ON videos(tenant_id);
+CREATE INDEX idx_videos_video_id ON videos(video_id);
+CREATE INDEX idx_videos_is_imported ON videos(is_imported);
+CREATE INDEX idx_video_chat_user_video ON video_chat_messages(user_id, video_id);
+CREATE INDEX idx_video_chat_tenant ON video_chat_messages(tenant_id);
+CREATE INDEX idx_video_notes_user_video ON video_notes(user_id, video_id);
+CREATE INDEX idx_video_notes_tenant ON video_notes(tenant_id);
 
 -- Updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
