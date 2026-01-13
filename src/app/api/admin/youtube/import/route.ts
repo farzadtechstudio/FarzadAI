@@ -868,7 +868,7 @@ async function saveLocalConfig(youtube: YouTubeConfig, knowledgeItems: Knowledge
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tenantId, videoId, modified_by, modified_by_initials } = body;
+    const { tenantId, videoId, modified_by, modified_by_initials, forceReimport } = body;
 
     if (!tenantId || !videoId) {
       return NextResponse.json(
@@ -892,8 +892,8 @@ export async function POST(request: NextRequest) {
 
       const video = youtube.videos![videoIndex];
 
-      // Check if already imported
-      if (video.is_imported) {
+      // Check if already imported (unless force re-import)
+      if (video.is_imported && !forceReimport) {
         return NextResponse.json(
           { error: "Video already imported" },
           { status: 400 }
@@ -987,9 +987,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Video not found", details: videoError?.message, searchedBy: isUUID ? "id" : "video_id" }, { status: 404 });
     }
 
-    console.log("Found video:", video.id, "video_id:", video.video_id, "title:", video.title);
+    console.log("Found video:", video.id, "video_id:", video.video_id, "title:", video.title, "is_imported:", video.is_imported, "forceReimport:", forceReimport);
 
-    if (video.is_imported) {
+    // Check if already imported (unless force re-import)
+    if (video.is_imported && !forceReimport) {
       return NextResponse.json(
         { error: "Video already imported" },
         { status: 400 }

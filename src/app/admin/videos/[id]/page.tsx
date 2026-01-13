@@ -258,6 +258,7 @@ export default function VideoDetailPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
+  const [isReimporting, setIsReimporting] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -561,6 +562,36 @@ export default function VideoDetailPage() {
       console.error("Content generation error:", error);
     } finally {
       setIsGenerating(null);
+    }
+  };
+
+  const handleReimportTranscript = async () => {
+    if (!video) return;
+
+    setIsReimporting(true);
+    try {
+      const response = await fetch("/api/admin/youtube/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId: "farzad", // TODO: Get from auth context
+          videoId: video.video_id,
+          forceReimport: true,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to import transcript");
+      }
+
+      // Refresh video data
+      await fetchVideoData();
+    } catch (err) {
+      console.error("Re-import error:", err);
+      alert(err instanceof Error ? err.message : "Failed to re-import transcript");
+    } finally {
+      setIsReimporting(false);
     }
   };
 
@@ -961,7 +992,14 @@ export default function VideoDetailPage() {
                   ))
                 ) : (
                   <div className="text-center py-12 text-[var(--text-muted)]">
-                    No transcript available
+                    <p className="mb-4">No transcript available</p>
+                    <button
+                      onClick={handleReimportTranscript}
+                      disabled={isReimporting}
+                      className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+                    >
+                      {isReimporting ? "Importing..." : "Import Transcript"}
+                    </button>
                   </div>
                 )}
               </div>
@@ -972,21 +1010,30 @@ export default function VideoDetailPage() {
                   <span>Word Count: {video.transcript?.wordCount || 0}</span>
                   <span>Character count: {video.transcript?.characterCount || 0}</span>
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <span>Autoscroll</span>
-                  <div
-                    onClick={() => setAutoScroll(!autoScroll)}
-                    className={`w-10 h-5 rounded-full transition-colors ${
-                      autoScroll ? "bg-[var(--accent)]" : "bg-[var(--border)]"
-                    }`}
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={handleReimportTranscript}
+                    disabled={isReimporting}
+                    className="px-3 py-1.5 text-xs rounded-lg hover:bg-[var(--background)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)] disabled:opacity-50"
                   >
+                    {isReimporting ? "Importing..." : "Re-import Transcript"}
+                  </button>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <span>Autoscroll</span>
                     <div
-                      className={`w-4 h-4 rounded-full bg-white shadow transform transition-transform mt-0.5 ${
-                        autoScroll ? "translate-x-5 ml-0.5" : "translate-x-0.5"
+                      onClick={() => setAutoScroll(!autoScroll)}
+                      className={`w-10 h-5 rounded-full transition-colors ${
+                        autoScroll ? "bg-[var(--accent)]" : "bg-[var(--border)]"
                       }`}
-                    />
-                  </div>
-                </label>
+                    >
+                      <div
+                        className={`w-4 h-4 rounded-full bg-white shadow transform transition-transform mt-0.5 ${
+                          autoScroll ? "translate-x-5 ml-0.5" : "translate-x-0.5"
+                        }`}
+                      />
+                    </div>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
