@@ -137,48 +137,73 @@ async function fetchChannelPlaylists(
   return playlistMap;
 }
 
-// Fetch video-to-playlist mapping
-async function fetchVideoPlaylistMapping(
-  playlistIds: string[],
+// Fetch all videos from a specific playlist
+async function fetchPlaylistVideos(
+  playlistId: string,
+  playlistTitle: string,
   apiKey: string
-): Promise<Map<string, { playlistId: string; playlistTitle: string }>> {
-  const videoToPlaylist = new Map<string, { playlistId: string; playlistTitle: string }>();
+): Promise<{ videoId: string; playlistId: string; playlistTitle: string }[]> {
+  const videos: { videoId: string; playlistId: string; playlistTitle: string }[] = [];
+  let nextPageToken = "";
 
-  for (const playlistId of playlistIds) {
+  try {
+    do {
+      const url = `https://www.googleapis.com/youtube/v3/playlistItems?key=${apiKey}&playlistId=${playlistId}&part=snippet&maxResults=50${nextPageToken ? `&pageToken=${nextPageToken}` : ""}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        console.error(`Failed to fetch videos for playlist ${playlistId}`);
+        break;
+      }
+
+      const data = await response.json();
+      const items: YouTubeAPIPlaylistVideoItem[] = data.items || [];
+
+      for (const item of items) {
+        videos.push({
+          videoId: item.snippet.resourceId.videoId,
+          playlistId,
+          playlistTitle,
+        });
+      }
+
+      nextPageToken = data.nextPageToken || "";
+    } while (nextPageToken);
+  } catch (error) {
+    console.error(`Error fetching videos for playlist ${playlistId}:`, error);
+  }
+
+  return videos;
+}
+
+// Fetch video details in batches
+async function fetchVideoDetails(
+  videoIds: string[],
+  apiKey: string
+): Promise<Map<string, YouTubeAPIVideoItem>> {
+  const videoMap = new Map<string, YouTubeAPIVideoItem>();
+
+  // YouTube API allows max 50 video IDs per request
+  const batchSize = 50;
+  for (let i = 0; i < videoIds.length; i += batchSize) {
+    const batch = videoIds.slice(i, i + batchSize);
+    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?key=${apiKey}&id=${batch.join(",")}&part=snippet,contentDetails,statistics`;
+
     try {
-      let nextPageToken = "";
-
-      do {
-        const url = `https://www.googleapis.com/youtube/v3/playlistItems?key=${apiKey}&playlistId=${playlistId}&part=snippet&maxResults=50${nextPageToken ? `&pageToken=${nextPageToken}` : ""}`;
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          console.error(`Failed to fetch playlist items for ${playlistId}`);
-          break;
-        }
-
+      const response = await fetch(videosUrl);
+      if (response.ok) {
         const data = await response.json();
-        const items: YouTubeAPIPlaylistVideoItem[] = data.items || [];
-
+        const items: YouTubeAPIVideoItem[] = data.items || [];
         for (const item of items) {
-          const videoId = item.snippet.resourceId.videoId;
-          // Only set if not already set (first playlist wins)
-          if (!videoToPlaylist.has(videoId)) {
-            videoToPlaylist.set(videoId, {
-              playlistId: item.snippet.playlistId,
-              playlistTitle: "", // Will be filled in later
-            });
-          }
+          videoMap.set(item.id, item);
         }
-
-        nextPageToken = data.nextPageToken || "";
-      } while (nextPageToken);
+      }
     } catch (error) {
-      console.error(`Error fetching playlist items for ${playlistId}:`, error);
+      console.error("Error fetching video details batch:", error);
     }
   }
 
-  return videoToPlaylist;
+  return videoMap;
 }
 
 // Fetch videos from YouTube Data API v3
@@ -193,55 +218,54 @@ async function fetchVideosFromYouTube(
   try {
     // Step 1: Get all playlists for the channel
     const playlistMap = await fetchChannelPlaylists(channelId, apiKey);
+    const allVideoIds = new Set<string>();
+    const videoToPlaylist = new Map<string, { playlistId: string; playlistTitle: string }>();
 
-    // Step 2: Get video-to-playlist mapping
-    const playlistIds = Array.from(playlistMap.keys());
-    const videoToPlaylist = await fetchVideoPlaylistMapping(playlistIds, apiKey);
+    // Step 2: Fetch all videos from each playlist
+    const playlistEntries = Array.from(playlistMap.entries());
+    for (const [playlistId, playlistTitle] of playlistEntries) {
+      const playlistVideos = await fetchPlaylistVideos(playlistId, playlistTitle, apiKey);
 
-    // Fill in playlist titles
-    for (const [videoId, info] of videoToPlaylist.entries()) {
-      const title = playlistMap.get(info.playlistId);
-      if (title) {
-        videoToPlaylist.set(videoId, { ...info, playlistTitle: title });
+      for (const video of playlistVideos) {
+        allVideoIds.add(video.videoId);
+        // First playlist wins for video-to-playlist mapping
+        if (!videoToPlaylist.has(video.videoId)) {
+          videoToPlaylist.set(video.videoId, {
+            playlistId: video.playlistId,
+            playlistTitle: video.playlistTitle,
+          });
+        }
       }
     }
 
-    // Step 3: Get video IDs from channel uploads
+    // Step 3: Also get recent channel uploads (videos not in any playlist)
     const searchUrl = `https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${channelId}&part=snippet&type=video&order=date&maxResults=50`;
 
     const searchResponse = await fetch(searchUrl);
-    if (!searchResponse.ok) {
-      const errorData = await searchResponse.json();
-      console.error("YouTube API search error:", errorData);
-      throw new Error(errorData.error?.message || "Failed to fetch videos from YouTube");
+    if (searchResponse.ok) {
+      const searchData = await searchResponse.json();
+      const searchItems: YouTubeAPISearchItem[] = searchData.items || [];
+
+      for (const item of searchItems) {
+        allVideoIds.add(item.id.videoId);
+      }
     }
 
-    const searchData = await searchResponse.json();
-    const searchItems: YouTubeAPISearchItem[] = searchData.items || [];
-
-    if (searchItems.length === 0) {
+    if (allVideoIds.size === 0) {
       return [];
     }
 
-    // Step 4: Get detailed video info (duration, view count)
-    const videoIds = searchItems.map((item) => item.id.videoId).join(",");
-    const videosUrl = `https://www.googleapis.com/youtube/v3/videos?key=${apiKey}&id=${videoIds}&part=snippet,contentDetails,statistics`;
-
-    const videosResponse = await fetch(videosUrl);
-    if (!videosResponse.ok) {
-      const errorData = await videosResponse.json();
-      console.error("YouTube API videos error:", errorData);
-      throw new Error(errorData.error?.message || "Failed to fetch video details");
-    }
-
-    const videosData = await videosResponse.json();
-    const videoItems: YouTubeAPIVideoItem[] = videosData.items || [];
+    // Step 4: Get detailed video info for all videos
+    const videoDetails = await fetchVideoDetails(Array.from(allVideoIds), apiKey);
 
     // Step 5: Map to our format with playlist info
-    const videos: YouTubeVideo[] = videoItems.map((video) => {
-      const playlistInfo = videoToPlaylist.get(video.id);
+    const videos: YouTubeVideo[] = [];
 
-      return {
+    const videoEntries = Array.from(videoDetails.entries());
+    for (const [videoId, video] of videoEntries) {
+      const playlistInfo = videoToPlaylist.get(videoId);
+
+      videos.push({
         id: `yt-${video.id}`,
         video_id: video.id,
         title: video.snippet.title,
@@ -252,8 +276,11 @@ async function fetchVideosFromYouTube(
         duration: video.contentDetails?.duration ? parseDuration(video.contentDetails.duration) : undefined,
         view_count: video.statistics?.viewCount ? parseInt(video.statistics.viewCount) : undefined,
         is_imported: false,
-      };
-    });
+      });
+    }
+
+    // Sort by published date (newest first)
+    videos.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
 
     return videos;
   } catch (error) {

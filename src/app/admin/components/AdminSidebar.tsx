@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   PaletteIcon,
   GridIcon,
@@ -21,9 +22,16 @@ interface AdminSidebarProps {
   onLogout: () => void;
 }
 
+interface NavItem {
+  id: Tab;
+  label: string;
+  icon: React.FC<{ className?: string }>;
+  href?: string; // Optional direct link
+}
+
 interface NavSection {
   title?: string;
-  items: { id: Tab; label: string; icon: React.FC<{ className?: string }> }[];
+  items: NavItem[];
 }
 
 const navSections: NavSection[] = [
@@ -36,7 +44,7 @@ const navSections: NavSection[] = [
   {
     title: "Data Source",
     items: [
-      { id: "youtube", label: "YouTube Feed", icon: YouTubeIcon },
+      { id: "youtube", label: "YouTube Feed", icon: YouTubeIcon, href: "/admin/videos" },
       { id: "knowledge", label: "Knowledge Base", icon: DatabaseIcon },
     ],
   },
@@ -76,20 +84,35 @@ export default function AdminSidebar({
               </p>
             )}
             <div className="space-y-1">
-              {section.items.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => onTabChange(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
-                    activeTab === item.id
-                      ? "bg-[var(--accent)] text-white"
-                      : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="font-medium">{item.label}</span>
-                </button>
-              ))}
+              {section.items.map((item) =>
+                item.href ? (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
+                      activeTab === item.id
+                        ? "bg-[var(--accent)] text-white"
+                        : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </Link>
+                ) : (
+                  <button
+                    key={item.id}
+                    onClick={() => onTabChange(item.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
+                      activeTab === item.id
+                        ? "bg-[var(--accent)] text-white"
+                        : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </button>
+                )
+              )}
             </div>
           </div>
         ))}

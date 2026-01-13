@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { SearchIcon, UploadIcon, EyeIcon } from "./AdminIcons";
 
 interface YouTubeFeedProps {
@@ -76,6 +77,7 @@ const SettingsIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
 );
 
 export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
+  const router = useRouter();
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [channelId, setChannelId] = useState<string | null>(null);
   const [channelName, setChannelName] = useState<string | null>(null);
@@ -100,6 +102,10 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Sorting
+  const [sortColumn, setSortColumn] = useState<"title" | "date" | "playlist" | "status">("date");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   // Cache info
   const [lastSynced, setLastSynced] = useState<string | null>(null);
@@ -132,6 +138,23 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
     const uniquePlaylists = new Set(videos.map((v) => v.playlist).filter(Boolean));
     return Array.from(uniquePlaylists) as string[];
   }, [videos]);
+
+  // Handle sort column click
+  const handleSort = (column: "title" | "date" | "playlist" | "status") => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(column);
+      setSortDirection(column === "date" ? "desc" : "asc");
+    }
+    setCurrentPage(1);
+  };
+
+  // Get sort indicator for column
+  const getSortIndicator = (column: "title" | "date" | "playlist" | "status") => {
+    if (sortColumn !== column) return "↕";
+    return sortDirection === "asc" ? "↑" : "↓";
+  };
 
   // Filter and paginate videos
   const filteredVideos = useMemo(() => {
@@ -180,8 +203,30 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
       filtered = filtered.filter((v) => !v.is_imported);
     }
 
+    // Sorting
+    filtered = [...filtered].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortColumn) {
+        case "title":
+          comparison = a.title.localeCompare(b.title);
+          break;
+        case "date":
+          comparison = new Date(a.published_at).getTime() - new Date(b.published_at).getTime();
+          break;
+        case "playlist":
+          comparison = (a.playlist || "").localeCompare(b.playlist || "");
+          break;
+        case "status":
+          comparison = (a.is_imported ? 1 : 0) - (b.is_imported ? 1 : 0);
+          break;
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+
     return filtered;
-  }, [videos, searchQuery, dateFilter, playlistFilter, statusFilter]);
+  }, [videos, searchQuery, dateFilter, playlistFilter, statusFilter, sortColumn, sortDirection]);
 
   // Pagination
   const totalPages = Math.ceil(filteredVideos.length / itemsPerPage);
@@ -338,6 +383,7 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
       });
 
       if (response.ok) {
+        const data = await response.json();
         // Update local state
         setVideos((prev) =>
           prev.map((v) =>
@@ -345,6 +391,10 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
           )
         );
         setMessage({ type: "success", text: `Imported "${video.title}"` });
+        // Navigate to video detail page after short delay
+        setTimeout(() => {
+          router.push(`/admin/videos/${video.video_id}`);
+        }, 500);
       } else {
         const data = await response.json();
         setMessage({ type: "error", text: data.error || "Failed to import video" });
@@ -732,23 +782,43 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
       {/* Table */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col className="w-[100px]" />
+              <col className="w-[35%]" />
+              <col className="w-[120px]" />
+              <col className="w-[20%]" />
+              <col className="w-[120px]" />
+              <col className="w-[140px]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-[var(--border)]">
                 <th className="text-left px-4 py-3 text-sm font-medium text-[var(--text-secondary)]">
                   Thumbnail
                 </th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-[var(--text-secondary)]">
-                  Title ↕
+                <th
+                  onClick={() => handleSort("title")}
+                  className="text-left px-4 py-3 text-sm font-medium text-[var(--text-secondary)] cursor-pointer hover:text-[var(--text-primary)] transition-colors select-none"
+                >
+                  Title {getSortIndicator("title")}
                 </th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-[var(--text-secondary)]">
-                  Date ↓
+                <th
+                  onClick={() => handleSort("date")}
+                  className="text-left px-4 py-3 text-sm font-medium text-[var(--text-secondary)] cursor-pointer hover:text-[var(--text-primary)] transition-colors select-none"
+                >
+                  Date {getSortIndicator("date")}
                 </th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-[var(--text-secondary)]">
-                  Playlist
+                <th
+                  onClick={() => handleSort("playlist")}
+                  className="text-left px-4 py-3 text-sm font-medium text-[var(--text-secondary)] cursor-pointer hover:text-[var(--text-primary)] transition-colors select-none"
+                >
+                  Playlist {getSortIndicator("playlist")}
                 </th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-[var(--text-secondary)]">
-                  Status ↕
+                <th
+                  onClick={() => handleSort("status")}
+                  className="text-left px-4 py-3 text-sm font-medium text-[var(--text-secondary)] cursor-pointer hover:text-[var(--text-primary)] transition-colors select-none"
+                >
+                  Status {getSortIndicator("status")}
                 </th>
                 <th className="text-right px-4 py-3 text-sm font-medium text-[var(--text-secondary)]">
                   Actions
@@ -819,10 +889,7 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
                       <div className="flex items-center justify-end gap-2">
                         {video.is_imported ? (
                           <button
-                            onClick={() => {
-                              // TODO: Navigate to knowledge base with this item
-                              setMessage({ type: "success", text: "View in Knowledge Base" });
-                            }}
+                            onClick={() => router.push(`/admin/videos/${video.video_id}`)}
                             className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)] text-sm font-medium rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
                           >
                             <DocumentIcon className="w-4 h-4" />

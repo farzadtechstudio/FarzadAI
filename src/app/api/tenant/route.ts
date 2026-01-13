@@ -116,7 +116,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function buildSupabaseResponse(supabase: ReturnType<typeof import("@supabase/supabase-js").createClient>, tenant: Record<string, unknown>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function buildSupabaseResponse(supabase: any, tenant: Record<string, unknown>) {
   const [settingsResult, topicsResult] = await Promise.all([
     supabase.from("tenant_settings").select("*").eq("tenant_id", tenant.id).single(),
     supabase

@@ -6,6 +6,7 @@ import { KnowledgeItem } from "@/types";
 export const farzadKnowledge: KnowledgeItem[] = [
   {
     id: "1",
+    tenant_id: "local",
     source: "manual",
     title: "First Principles Thinking",
     content: `First principles thinking means breaking down complex problems to their fundamental truths and building up from there, rather than reasoning by analogy.
@@ -15,10 +16,12 @@ When analyzing any situation, I ask: What do we know to be absolutely true? What
 For example, with Tesla, instead of comparing them to other car companies, I look at: What are the fundamental economics of transportation? What does manufacturing physics allow? What are the real bottlenecks in battery chemistry and production?
 
 This approach helps avoid getting caught up in conventional wisdom or what everyone else is doing. The market often misprice things because they reason by analogy to what has happened before, rather than thinking from first principles about what is actually possible.`,
-    createdAt: new Date("2024-01-01"),
+    created_at: new Date("2024-01-01"),
+    updated_at: new Date("2024-01-01"),
   },
   {
     id: "2",
+    tenant_id: "local",
     source: "youtube",
     title: "Tesla Full Self-Driving Analysis",
     content: `Tesla's FSD approach is fundamentally different from others. They're using vision-only, end-to-end neural networks trained on billions of miles of real driving data.
@@ -31,11 +34,13 @@ Tesla has three advantages:
 3. Vertical integration - they control hardware and software
 
 The bear thesis is always "they've been promising FSD for years." But the bull thesis looks at the rate of improvement. Each version is measurably better. The question is whether the improvement curve reaches superhuman driving before competitors catch up, and I believe it will.`,
-    sourceUrl: "https://youtube.com/@farzadmesbahi",
-    createdAt: new Date("2024-06-15"),
+    source_url: "https://youtube.com/@farzadmesbahi",
+    created_at: new Date("2024-06-15"),
+    updated_at: new Date("2024-06-15"),
   },
   {
     id: "3",
+    tenant_id: "local",
     source: "youtube",
     title: "AI and the Future of Work",
     content: `AI isn't just going to change some jobs - it's going to restructure the entire economy. But I'm fundamentally optimistic.
@@ -49,11 +54,13 @@ The key is to position yourself as someone who uses AI as a tool, not competes w
 4. Those focused on uniquely human skills - creativity, empathy, leadership
 
 Don't fear AI - learn to leverage it. The gap between those who use AI effectively and those who don't will be one of the biggest career differentiators of the next decade.`,
-    sourceUrl: "https://youtube.com/@farzadmesbahi",
-    createdAt: new Date("2024-03-20"),
+    source_url: "https://youtube.com/@farzadmesbahi",
+    created_at: new Date("2024-03-20"),
+    updated_at: new Date("2024-03-20"),
   },
   {
     id: "4",
+    tenant_id: "local",
     source: "manual",
     title: "Investment Philosophy",
     content: `My approach to investing is about finding asymmetric opportunities where the potential upside vastly outweighs the downside.
@@ -69,10 +76,12 @@ The biggest mistake most investors make is thinking too short-term. Markets are 
 I also believe in concentration over diversification for those with conviction and research. As Buffett says, diversification is protection against ignorance. If you've done the work and have conviction, you don't need to own 50 stocks.
 
 Note: This is my personal investment philosophy and not financial advice. Everyone's situation is different.`,
-    createdAt: new Date("2024-02-10"),
+    created_at: new Date("2024-02-10"),
+    updated_at: new Date("2024-02-10"),
   },
   {
     id: "5",
+    tenant_id: "local",
     source: "youtube",
     title: "Optimus Robot and Tesla's Long-Term Vision",
     content: `People focus on Tesla's car business, but I think Optimus could be the biggest story.
@@ -88,11 +97,13 @@ Tesla's advantages here:
 The skeptics say robots are hard. True. But Tesla has done hard things before. The question isn't whether it's hard - it's whether Tesla is the best positioned to solve it. And I believe they are.
 
 Timeline is uncertain, but the potential is massive. Even if Optimus takes longer than Elon suggests (which is likely), the end state is transformational.`,
-    sourceUrl: "https://youtube.com/@farzadmesbahi",
-    createdAt: new Date("2024-07-01"),
+    source_url: "https://youtube.com/@farzadmesbahi",
+    created_at: new Date("2024-07-01"),
+    updated_at: new Date("2024-07-01"),
   },
   {
     id: "6",
+    tenant_id: "local",
     source: "manual",
     title: "Communication and Content Creation",
     content: `Clear thinking leads to clear communication. If you can't explain something simply, you probably don't understand it well enough.
@@ -107,10 +118,12 @@ When I make content, I try to:
 The goal isn't to show how smart I am - it's to help people think more clearly about complex topics. That means cutting through noise, challenging lazy thinking, and focusing on what actually matters.
 
 Social media rewards hot takes and controversy. I try to resist that and focus on substance. It's a longer game but builds more trust and credibility over time.`,
-    createdAt: new Date("2024-04-05"),
+    created_at: new Date("2024-04-05"),
+    updated_at: new Date("2024-04-05"),
   },
   {
     id: "7",
+    tenant_id: "local",
     source: "youtube",
     title: "Energy and the Future",
     content: `Energy is the foundation of civilization. Every major advance in human progress has been accompanied by access to more abundant, cheaper energy.
@@ -122,11 +135,13 @@ Tesla's energy business is underrated. Megapack deployments are accelerating. As
 The transition won't happen overnight, but the direction is clear. Countries and companies that move faster on the energy transition will have competitive advantages. Those that lag will face higher costs and reduced competitiveness.
 
 I'm optimistic about the future of energy. The technology is here - it's now about deployment and scale.`,
-    sourceUrl: "https://youtube.com/@farzadmesbahi",
-    createdAt: new Date("2024-05-15"),
+    source_url: "https://youtube.com/@farzadmesbahi",
+    created_at: new Date("2024-05-15"),
+    updated_at: new Date("2024-05-15"),
   },
   {
     id: "8",
+    tenant_id: "local",
     source: "manual",
     title: "Critical Thinking and Independent Analysis",
     content: `One of the most valuable skills is the ability to think independently. This means:
@@ -142,7 +157,8 @@ The financial media is often wrong. Not because journalists are bad, but because
 Do your own research. Read the actual filings, not the headlines. Listen to the full earnings calls, not just the soundbites. Form your own view based on primary sources.
 
 This takes more work, but it's the only way to develop genuine insight and avoid being misled by the crowd.`,
-    createdAt: new Date("2024-01-15"),
+    created_at: new Date("2024-01-15"),
+    updated_at: new Date("2024-01-15"),
   },
 ];
 
