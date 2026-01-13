@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { USE_SUPABASE } from "@/lib/config";
 import { loadSetupConfig } from "@/lib/setup-loader";
 
@@ -84,7 +85,25 @@ export async function GET(
 ) {
   try {
     const { id: videoId } = await params;
-    const tenantId = request.nextUrl.searchParams.get("tenantId") || "local";
+
+    // Get tenant ID from query param, session cookie, or default to local
+    let tenantId = request.nextUrl.searchParams.get("tenantId");
+
+    if (!tenantId) {
+      // Try to get from session cookie
+      const cookieStore = await cookies();
+      const sessionCookie = cookieStore.get("session");
+      if (sessionCookie?.value) {
+        try {
+          const session = JSON.parse(sessionCookie.value);
+          tenantId = session.tenantId;
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
+
+    tenantId = tenantId || "local";
 
     if (!videoId) {
       return NextResponse.json({ error: "Video ID required" }, { status: 400 });

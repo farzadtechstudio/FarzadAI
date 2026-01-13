@@ -574,7 +574,7 @@ export default function VideoDetailPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tenantId: "farzad", // TODO: Get from auth context
+          // tenantId will be read from session cookie on server
           videoId: video.video_id,
           forceReimport: true,
         }),
@@ -582,7 +582,7 @@ export default function VideoDetailPage() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to import transcript");
+        throw new Error(data.error || data.details || "Failed to import transcript");
       }
 
       // Refresh video data

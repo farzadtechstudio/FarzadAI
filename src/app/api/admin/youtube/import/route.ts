@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { USE_SUPABASE } from "@/lib/config";
 import { loadSetupConfig, clearConfigCache } from "@/lib/setup-loader";
 import { promises as fs } from "fs";
@@ -868,7 +869,21 @@ async function saveLocalConfig(youtube: YouTubeConfig, knowledgeItems: Knowledge
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { tenantId, videoId, modified_by, modified_by_initials, forceReimport } = body;
+    let { tenantId, videoId, modified_by, modified_by_initials, forceReimport } = body;
+
+    // If tenantId not provided, try to get from session cookie
+    if (!tenantId) {
+      const cookieStore = await cookies();
+      const sessionCookie = cookieStore.get("session");
+      if (sessionCookie?.value) {
+        try {
+          const session = JSON.parse(sessionCookie.value);
+          tenantId = session.tenantId;
+        } catch {
+          // Ignore parse errors
+        }
+      }
+    }
 
     if (!tenantId || !videoId) {
       return NextResponse.json(
