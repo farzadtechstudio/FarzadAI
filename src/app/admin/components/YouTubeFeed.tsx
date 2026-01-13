@@ -379,11 +379,12 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
       const response = await fetch("/api/admin/youtube/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tenantId, videoId: video.id }),
+        body: JSON.stringify({ tenantId, videoId: video.video_id }),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
         // Update local state
         setVideos((prev) =>
           prev.map((v) =>
@@ -396,10 +397,11 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
           router.push(`/admin/videos/${video.video_id}`);
         }, 500);
       } else {
-        const data = await response.json();
-        setMessage({ type: "error", text: data.error || "Failed to import video" });
+        console.error("Import failed:", data);
+        setMessage({ type: "error", text: data.error || data.details || "Failed to import video" });
       }
     } catch (error) {
+      console.error("Import error:", error);
       setMessage({ type: "error", text: "Failed to import video" });
     } finally {
       setIsImporting(null);
