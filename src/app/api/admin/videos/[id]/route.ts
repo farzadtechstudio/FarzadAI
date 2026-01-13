@@ -198,19 +198,30 @@ export async function GET(
 
     console.log("Fetching video:", { videoId, tenantId });
 
-    const { data: video, error: videoError } = await supabase
+    // Check if videoId looks like a UUID (for database id) or YouTube video ID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(videoId);
+
+    let query = supabase
       .from("videos")
       .select("*")
-      .eq("tenant_id", tenantId)
-      .or(`id.eq.${videoId},video_id.eq.${videoId}`)
-      .single();
+      .eq("tenant_id", tenantId);
+
+    if (isUUID) {
+      // If it's a UUID, search by database id
+      query = query.eq("id", videoId);
+    } else {
+      // Otherwise search by YouTube video_id
+      query = query.eq("video_id", videoId);
+    }
+
+    const { data: video, error: videoError } = await query.single();
 
     if (videoError || !video) {
-      console.error("Video not found:", { videoId, tenantId, error: videoError });
+      console.error("Video not found:", { videoId, tenantId, isUUID, error: videoError });
       return NextResponse.json({
         error: "Video not found",
         details: videoError?.message,
-        searchedFor: { videoId, tenantId }
+        searchedFor: { videoId, tenantId, searchedBy: isUUID ? "id" : "video_id" }
       }, { status: 404 });
     }
 
