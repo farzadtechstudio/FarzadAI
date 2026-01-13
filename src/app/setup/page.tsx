@@ -32,7 +32,7 @@ export default function SetupPage() {
         setSetupRequired(true);
       } else {
         // Already set up, redirect to login
-        router.push("/login");
+        router.push("/admin/login");
       }
     } catch (err) {
       setError("Failed to check setup status");
@@ -78,7 +78,7 @@ export default function SetupPage() {
 
       setSuccess(true);
       setTimeout(() => {
-        router.push("/login");
+        router.push("/admin/login");
       }, 2000);
     } catch (err) {
       setError("An error occurred during setup");
