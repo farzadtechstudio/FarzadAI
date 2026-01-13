@@ -1,0 +1,125 @@
+"use client";
+
+import {
+  PaletteIcon,
+  GridIcon,
+  DatabaseIcon,
+  BrainIcon,
+  UsersIcon,
+  LogOutIcon,
+  HomeIcon,
+  YouTubeIcon,
+} from "./AdminIcons";
+
+type Tab = "branding" | "topics" | "youtube" | "knowledge" | "ai" | "team";
+
+interface AdminSidebarProps {
+  activeTab: Tab;
+  onTabChange: (tab: Tab) => void;
+  user: { name: string; email: string; role: string };
+  tenant: { brand_name: string; slug: string };
+  onLogout: () => void;
+}
+
+interface NavSection {
+  title?: string;
+  items: { id: Tab; label: string; icon: React.FC<{ className?: string }> }[];
+}
+
+const navSections: NavSection[] = [
+  {
+    items: [
+      { id: "branding", label: "Branding", icon: PaletteIcon },
+      { id: "topics", label: "Topic Cards", icon: GridIcon },
+    ],
+  },
+  {
+    title: "Data Source",
+    items: [
+      { id: "youtube", label: "YouTube Feed", icon: YouTubeIcon },
+      { id: "knowledge", label: "Knowledge Base", icon: DatabaseIcon },
+    ],
+  },
+  {
+    title: "Configuration",
+    items: [
+      { id: "ai", label: "AI Settings", icon: BrainIcon },
+      { id: "team", label: "Team", icon: UsersIcon },
+    ],
+  },
+];
+
+export default function AdminSidebar({
+  activeTab,
+  onTabChange,
+  user,
+  tenant,
+  onLogout,
+}: AdminSidebarProps) {
+  return (
+    <aside className="fixed left-0 top-0 h-full w-64 bg-[var(--surface)] border-r border-[var(--border)] flex flex-col z-50">
+      {/* Header */}
+      <div className="p-6 border-b border-[var(--border)]">
+        <h1 className="text-lg font-bold text-[var(--text-primary)]">
+          {tenant.brand_name}
+        </h1>
+        <p className="text-sm text-[var(--text-muted)]">Admin Dashboard</p>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-4 overflow-y-auto">
+        {navSections.map((section, sectionIndex) => (
+          <div key={sectionIndex} className={sectionIndex > 0 ? "mt-6" : ""}>
+            {section.title && (
+              <p className="px-4 mb-2 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+                {section.title}
+              </p>
+            )}
+            <div className="space-y-1">
+              {section.items.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onTabChange(item.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors ${
+                    activeTab === item.id
+                      ? "bg-[var(--accent)] text-white"
+                      : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+                  }`}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-[var(--border)] space-y-2">
+        <a
+          href="/"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition-colors"
+        >
+          <HomeIcon className="w-5 h-5" />
+          <span className="font-medium">View Chat</span>
+        </a>
+
+        <div className="px-4 py-3">
+          <p className="text-sm font-medium text-[var(--text-primary)] truncate">
+            {user.name || user.email}
+          </p>
+          <p className="text-xs text-[var(--text-muted)] capitalize">{user.role}</p>
+        </div>
+
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+        >
+          <LogOutIcon className="w-5 h-5" />
+          <span className="font-medium">Sign Out</span>
+        </button>
+      </div>
+    </aside>
+  );
+}

@@ -1,0 +1,452 @@
+{
+  "brand": {
+    "brand_name": "Test AI",
+    "tagline": "Farzad Mesbahi's AI Assistant",
+    "owner_name": "Farzad Mesbahi",
+    "primary_color": "#3b5998",
+    "logo_url": ""
+  },
+  "welcome": {
+    "welcome_title": "Ask Farzad anything",
+    "welcome_subtitle": "Get insights on first principles thinking, technology trends, market analysis and more.",
+    "placeholder_text": "What would you like to know?",
+    "disclaimer_text": "This AI is inspired by Farzad Mesbahi's thinking.\nIt provides general insights, not financial, legal, or personal advice."
+  },
+  "ai": {
+    "system_prompt": "You are Farzad AI, an AI assistant that embodies Farzad Mesbahi's thinking style, perspectives, and communication approach. You help people understand topics related to technology & ai.\n\n## Your Core Identity:\n\nYou speak and think like Farzad Mesbahi. When users ask questions, you draw from Farzad Mesbahi's expertise and perspective to provide thoughtful, valuable responses.\n\n## Your Areas of Expertise:\n\nFirst Principles Thinking, Technology Trends, Market Analysis, Industry Insights\n\n## Communication Style:\n\nYour tone is thorough, data-driven, and technical. Provide detailed analysis with evidence.\n\n## Your Audience:\n\nYou're primarily speaking to people of all skill levels. Gauge complexity from questions and adapt your explanations.\n\n## Key Principles:\n\n1. **Authenticity**: Speak with Farzad Mesbahi's voice and perspective\n2. **Value-First**: Every response should provide genuine insight or utility\n3. **Clarity**: Make complex ideas accessible without dumbing them down\n4. **Engagement**: Keep conversations interesting and interactive\n5. **Honesty**: Be upfront about uncertainty and limitations\n\n## Guidelines:\n\n- Provide analysis and perspectives, NOT financial, legal, or personal advice\n- When uncertain, acknowledge it rather than making things up\n- Encourage people to think critically and do their own research\n- Keep responses focused and actionable\n- Use concrete examples to illustrate abstract concepts",
+    "model": "gpt-4-turbo-preview",
+    "max_tokens": 2000,
+    "temperature": 0.7
+  },
+  "topicCards": [
+    {
+      "id": "topic-1",
+      "icon": "chart",
+      "title": "Industry Analysis",
+      "description": "Deep dives into market trends and industry dynamics.",
+      "suggested_prompt": "What are the key trends shaping the industry right now?"
+    },
+    {
+      "id": "topic-2",
+      "icon": "cpu",
+      "title": "Technology Trends",
+      "description": "What's happening in tech and what it means for the future.",
+      "suggested_prompt": "What technology trends should I be paying attention to?"
+    },
+    {
+      "id": "topic-3",
+      "icon": "book",
+      "title": "Learning & Skills",
+      "description": "How to learn effectively and build new capabilities.",
+      "suggested_prompt": "What's the best way to learn new skills quickly?"
+    },
+    {
+      "id": "topic-4",
+      "icon": "sparkles",
+      "title": "Future Predictions",
+      "description": "Thoughts on what's coming and how to prepare.",
+      "suggested_prompt": "What do you think the future holds in the next 5-10 years?"
+    }
+  ],
+  "admin": {
+    "id": "1",
+    "email": "info@farzadcontent.com",
+    "password": "FarzadACDavid420!2025",
+    "name": "Farzad Mesbahi",
+    "role": "owner"
+  },
+  "youtubeChannel": null,
+  "setupCompleted": true,
+  "setupDate": "2026-01-12T22:29:05.491Z",
+  "youtube": {
+    "videos": [
+      {
+        "id": "yt-M4zh2G7yXow",
+        "video_id": "M4zh2G7yXow",
+        "title": "Tesla's Cybercab is EVERYWHERE!",
+        "thumbnail": "https://i.ytimg.com/vi/M4zh2G7yXow/mqdefault.jpg",
+        "published_at": "2026-01-12T20:39:08Z",
+        "duration": "16:18",
+        "view_count": 64713,
+        "is_imported": false
+      },
+      {
+        "id": "yt-13tQ9Q1hk44",
+        "video_id": "13tQ9Q1hk44",
+        "title": "It’s Over! I Can't Stay Quiet on TESLA vs NVIDIA Any Longer",
+        "thumbnail": "https://i.ytimg.com/vi/13tQ9Q1hk44/mqdefault.jpg",
+        "published_at": "2026-01-10T12:21:45Z",
+        "duration": "16:23",
+        "view_count": 79495,
+        "is_imported": false
+      },
+      {
+        "id": "yt-wLaZIZVnbRc",
+        "video_id": "wLaZIZVnbRc",
+        "title": "Why AI is about to transform insurance w/ Daniel Schreiber (CEO of Lemonade)",
+        "thumbnail": "https://i.ytimg.com/vi/wLaZIZVnbRc/mqdefault.jpg",
+        "published_at": "2026-01-09T17:43:06Z",
+        "duration": "1:12:44",
+        "view_count": 12315,
+        "is_imported": false
+      },
+      {
+        "id": "yt-1pKMWuPgzPU",
+        "video_id": "1pKMWuPgzPU",
+        "title": "It's unbelievable that no one's talking about this. THIS NEEDS TO CHANGE!!!!",
+        "thumbnail": "https://i.ytimg.com/vi/1pKMWuPgzPU/mqdefault.jpg",
+        "published_at": "2026-01-08T21:51:19Z",
+        "duration": "23:11",
+        "view_count": 25374,
+        "is_imported": false
+      },
+      {
+        "id": "yt-r-_98LhB5Dc",
+        "video_id": "r-_98LhB5Dc",
+        "title": "I don't think people are ready for what Elon Musk is saying...",
+        "thumbnail": "https://i.ytimg.com/vi/r-_98LhB5Dc/mqdefault.jpg",
+        "published_at": "2026-01-06T20:32:50Z",
+        "duration": "33:15",
+        "view_count": 97547,
+        "is_imported": false
+      },
+      {
+        "id": "yt-QIfhPqLr-bQ",
+        "video_id": "QIfhPqLr-bQ",
+        "title": "NVIDIA CEO Reveals Tesla’s Biggest Threat Yet",
+        "thumbnail": "https://i.ytimg.com/vi/QIfhPqLr-bQ/mqdefault.jpg",
+        "published_at": "2026-01-06T10:27:05Z",
+        "duration": "16:51",
+        "view_count": 47534,
+        "is_imported": false
+      },
+      {
+        "id": "yt-YnP9ohLDAKs",
+        "video_id": "YnP9ohLDAKs",
+        "title": "The Tesla Story Everyone Is Missing",
+        "thumbnail": "https://i.ytimg.com/vi/YnP9ohLDAKs/mqdefault.jpg",
+        "published_at": "2025-11-25T22:21:40Z",
+        "duration": "1:05:21",
+        "view_count": 9333,
+        "is_imported": false
+      },
+      {
+        "id": "yt-KF1Mk1XUxI8",
+        "video_id": "KF1Mk1XUxI8",
+        "title": "Internet Breaks w/ Elon Musk’s Announcement",
+        "thumbnail": "https://i.ytimg.com/vi/KF1Mk1XUxI8/mqdefault.jpg",
+        "published_at": "2025-11-14T19:47:35Z",
+        "duration": "37:55",
+        "view_count": 158326,
+        "is_imported": false
+      },
+      {
+        "id": "yt-4ngoBEB8u7c",
+        "video_id": "4ngoBEB8u7c",
+        "title": "Tesla Bot Will Change The World For The Better",
+        "thumbnail": "https://i.ytimg.com/vi/4ngoBEB8u7c/mqdefault.jpg",
+        "published_at": "2025-10-29T12:00:10Z",
+        "duration": "12:19",
+        "view_count": 9837,
+        "is_imported": false
+      },
+      {
+        "id": "yt-0E8EJxWdYK0",
+        "video_id": "0E8EJxWdYK0",
+        "title": "Tesla’s 4680: The Battery Shaping AI’s Energy Future",
+        "thumbnail": "https://i.ytimg.com/vi/0E8EJxWdYK0/mqdefault.jpg",
+        "published_at": "2025-09-18T12:00:02Z",
+        "duration": "1:12",
+        "view_count": 4120,
+        "is_imported": false
+      },
+      {
+        "id": "yt-hzLAZP2mMSg",
+        "video_id": "hzLAZP2mMSg",
+        "title": "Elon Musk Delivers Stunning Remarks At Historic UK March (Tommy Robinson)",
+        "thumbnail": "https://i.ytimg.com/vi/hzLAZP2mMSg/mqdefault.jpg",
+        "published_at": "2025-09-13T17:39:35Z",
+        "duration": "16:37",
+        "view_count": 389442,
+        "is_imported": false
+      },
+      {
+        "id": "yt-4t2e7pdICGg",
+        "video_id": "4t2e7pdICGg",
+        "title": "Why Tech’s Rise Is Fueling a Return to Faith",
+        "thumbnail": "https://i.ytimg.com/vi/4t2e7pdICGg/mqdefault.jpg",
+        "published_at": "2025-08-11T20:00:03Z",
+        "duration": "0:46",
+        "view_count": 2359,
+        "is_imported": false
+      },
+      {
+        "id": "yt-0W1sQn0COeQ",
+        "video_id": "0W1sQn0COeQ",
+        "title": "Tesla Just Signed A Massive Deal",
+        "thumbnail": "https://i.ytimg.com/vi/0W1sQn0COeQ/mqdefault.jpg",
+        "published_at": "2025-07-28T17:55:38Z",
+        "duration": "11:11",
+        "view_count": 30694,
+        "is_imported": false
+      },
+      {
+        "id": "yt-GDZTy8SAozk",
+        "video_id": "GDZTy8SAozk",
+        "title": "Epstein's Spy Ties Reshaping US Policy",
+        "thumbnail": "https://i.ytimg.com/vi/GDZTy8SAozk/mqdefault.jpg",
+        "published_at": "2025-07-21T18:00:15Z",
+        "duration": "1:43",
+        "view_count": 1932,
+        "is_imported": false
+      },
+      {
+        "id": "yt-v4WpUDRx5uM",
+        "video_id": "v4WpUDRx5uM",
+        "title": "Epstein Files: Why Power Hides Trump's Ties",
+        "thumbnail": "https://i.ytimg.com/vi/v4WpUDRx5uM/mqdefault.jpg",
+        "published_at": "2025-07-21T14:52:51Z",
+        "duration": "1:38",
+        "view_count": 2709,
+        "is_imported": false
+      },
+      {
+        "id": "yt-XlbfpUbh0Sw",
+        "video_id": "XlbfpUbh0Sw",
+        "title": "EXCLUSIVE: SpaceX's $4 Trillion Valuation",
+        "thumbnail": "https://i.ytimg.com/vi/XlbfpUbh0Sw/mqdefault.jpg",
+        "published_at": "2025-06-12T12:00:55Z",
+        "duration": "1:00:53",
+        "view_count": 26839,
+        "is_imported": false
+      },
+      {
+        "id": "yt-YDL8MxCdewo",
+        "video_id": "YDL8MxCdewo",
+        "title": "Tesla's Robotaxi Is About To Change Everything",
+        "thumbnail": "https://i.ytimg.com/vi/YDL8MxCdewo/mqdefault.jpg",
+        "published_at": "2025-05-22T12:00:56Z",
+        "duration": "1:04:37",
+        "view_count": 51341,
+        "is_imported": false
+      },
+      {
+        "id": "yt-MikufxCVJDY",
+        "video_id": "MikufxCVJDY",
+        "title": "Fox Host Didn’t Expect Elon Musk to Say This",
+        "thumbnail": "https://i.ytimg.com/vi/MikufxCVJDY/mqdefault.jpg",
+        "published_at": "2025-03-21T21:11:33Z",
+        "duration": "23:28",
+        "view_count": 691116,
+        "is_imported": false
+      },
+      {
+        "id": "yt-mIJc7fbRpeA",
+        "video_id": "mIJc7fbRpeA",
+        "title": "Cathie Wood: \"Elon Musk Is The Greatest Builder Of Our Time\"",
+        "thumbnail": "https://i.ytimg.com/vi/mIJc7fbRpeA/mqdefault.jpg",
+        "published_at": "2025-03-19T18:00:40Z",
+        "duration": "1:15:23",
+        "view_count": 184995,
+        "is_imported": false
+      },
+      {
+        "id": "yt-fWDuKyqH4O0",
+        "video_id": "fWDuKyqH4O0",
+        "title": "JD Vance Confronts Europe on AI",
+        "thumbnail": "https://i.ytimg.com/vi/fWDuKyqH4O0/mqdefault.jpg",
+        "published_at": "2025-02-11T16:16:14Z",
+        "duration": "13:24",
+        "view_count": 47446,
+        "is_imported": false
+      },
+      {
+        "id": "yt-IU58AUzNWSg",
+        "video_id": "IU58AUzNWSg",
+        "title": "He Turned $20K to $60M, Now ALL IN on Elon Musk",
+        "thumbnail": "https://i.ytimg.com/vi/IU58AUzNWSg/mqdefault.jpg",
+        "published_at": "2024-11-11T13:00:18Z",
+        "duration": "1:01:47",
+        "view_count": 251532,
+        "is_imported": false
+      },
+      {
+        "id": "yt-wTmvbIXvZ78",
+        "video_id": "wTmvbIXvZ78",
+        "title": "Self-Driving Tesla Blows My Parent's Mind.",
+        "thumbnail": "https://i.ytimg.com/vi/wTmvbIXvZ78/mqdefault.jpg",
+        "published_at": "2024-07-11T13:00:54Z",
+        "duration": "34:21",
+        "view_count": 29188,
+        "is_imported": false
+      },
+      {
+        "id": "yt-2rHJaPSxnHs",
+        "video_id": "2rHJaPSxnHs",
+        "title": "NEW Tesla Bot Details, Warren Buffet Buying Tesla Stock?",
+        "thumbnail": "https://i.ytimg.com/vi/2rHJaPSxnHs/mqdefault.jpg",
+        "published_at": "2024-05-06T20:06:17Z",
+        "duration": "30:44",
+        "view_count": 35050,
+        "is_imported": false
+      },
+      {
+        "id": "yt-5a2DamSKx2w",
+        "video_id": "5a2DamSKx2w",
+        "title": "Tesla's Q1 2024 Just Changed Everything.",
+        "thumbnail": "https://i.ytimg.com/vi/5a2DamSKx2w/mqdefault.jpg",
+        "published_at": "2024-04-24T00:20:55Z",
+        "duration": "40:26",
+        "view_count": 89323,
+        "is_imported": false
+      },
+      {
+        "id": "yt-hjLFI9W8E-4",
+        "video_id": "hjLFI9W8E-4",
+        "title": "Biden & FCC's Unfair Treatment of Elon Musk's Starlink",
+        "thumbnail": "https://i.ytimg.com/vi/hjLFI9W8E-4/mqdefault.jpg",
+        "published_at": "2023-12-15T12:00:38Z",
+        "duration": "39:27",
+        "view_count": 31543,
+        "is_imported": false
+      },
+      {
+        "id": "yt-ncsey2Yzla8",
+        "video_id": "ncsey2Yzla8",
+        "title": "NEW: Elon Musk's First Interview on CYBERTRUCK!!",
+        "thumbnail": "https://i.ytimg.com/vi/ncsey2Yzla8/mqdefault.jpg",
+        "published_at": "2023-12-05T21:30:58Z",
+        "duration": "23:20",
+        "view_count": 24526,
+        "is_imported": false
+      },
+      {
+        "id": "yt-ERMq6iGE7u8",
+        "video_id": "ERMq6iGE7u8",
+        "title": "Tesla Cybertruck vs Porsche 911 DRAG RACE",
+        "thumbnail": "https://i.ytimg.com/vi/ERMq6iGE7u8/mqdefault.jpg",
+        "published_at": "2023-11-30T22:13:17Z",
+        "duration": "0:22",
+        "view_count": 41880,
+        "is_imported": false
+      },
+      {
+        "id": "yt-1RPkRjpmuQk",
+        "video_id": "1RPkRjpmuQk",
+        "title": "Cybertruck Season is FINALLY Here.",
+        "thumbnail": "https://i.ytimg.com/vi/1RPkRjpmuQk/mqdefault.jpg",
+        "published_at": "2023-11-01T19:52:29Z",
+        "duration": "18:47",
+        "view_count": 26470,
+        "is_imported": false
+      },
+      {
+        "id": "yt-6qwheTB8iCE",
+        "video_id": "6qwheTB8iCE",
+        "title": "Elon Musk & Vivek Ramaswamy | Israel, Hamas, World War 3",
+        "thumbnail": "https://i.ytimg.com/vi/6qwheTB8iCE/mqdefault.jpg",
+        "published_at": "2023-10-24T13:55:34Z",
+        "duration": "1:23:35",
+        "view_count": 214041,
+        "is_imported": false
+      },
+      {
+        "id": "yt-zyAxKe5KU9s",
+        "video_id": "zyAxKe5KU9s",
+        "title": "The Ultimate Breakdown of Tesla's Q1 Earnings Call",
+        "thumbnail": "https://i.ytimg.com/vi/zyAxKe5KU9s/mqdefault.jpg",
+        "published_at": "2023-04-21T16:00:43Z",
+        "duration": "43:46",
+        "view_count": 7958,
+        "is_imported": false
+      },
+      {
+        "id": "yt-3h0i2yVMdMg",
+        "video_id": "3h0i2yVMdMg",
+        "title": "Tesla Stock: 500 Million Robo-Taxi TAM",
+        "thumbnail": "https://i.ytimg.com/vi/3h0i2yVMdMg/mqdefault.jpg",
+        "published_at": "2023-03-10T12:00:03Z",
+        "duration": "3:25",
+        "view_count": 4505,
+        "is_imported": false
+      },
+      {
+        "id": "yt-U3jja8ozYJo",
+        "video_id": "U3jja8ozYJo",
+        "title": "Investor Day Compact Car!!",
+        "thumbnail": "https://i.ytimg.com/vi/U3jja8ozYJo/mqdefault.jpg",
+        "published_at": "2023-03-01T06:00:19Z",
+        "duration": "0:35",
+        "view_count": 3223,
+        "is_imported": false
+      },
+      {
+        "id": "yt-ykyDXgRHBTk",
+        "video_id": "ykyDXgRHBTk",
+        "title": "Twitter under Elon Musk WILL CHANGE THE WORLD",
+        "thumbnail": "https://i.ytimg.com/vi/ykyDXgRHBTk/mqdefault.jpg",
+        "published_at": "2022-11-16T22:15:21Z",
+        "duration": "31:37",
+        "view_count": 11126,
+        "is_imported": false
+      },
+      {
+        "id": "yt-yEs9AH2irT8",
+        "video_id": "yEs9AH2irT8",
+        "title": "Robotaxi in 2024 CONFIRMED? Tesla $TSLA Tuesday Twitter Space Livestream w/ Yashu Sharma",
+        "thumbnail": "https://i.ytimg.com/vi/yEs9AH2irT8/mqdefault.jpg",
+        "published_at": "2022-09-13T19:07:36Z",
+        "duration": "58:46",
+        "view_count": 11320,
+        "is_imported": false
+      },
+      {
+        "id": "yt-8FpeGLzLzB4",
+        "video_id": "8FpeGLzLzB4",
+        "title": "My $8,555 YouTube Studio Tour! (Full Details in Description)",
+        "thumbnail": "https://i.ytimg.com/vi/8FpeGLzLzB4/mqdefault.jpg",
+        "published_at": "2022-03-05T22:14:31Z",
+        "duration": "16:01",
+        "view_count": 2622,
+        "is_imported": false
+      },
+      {
+        "id": "yt-1768294502618-1",
+        "video_id": "dQw4w9WgXcQ",
+        "title": "Sample Video 1 - Getting Started Guide",
+        "thumbnail": "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
+        "published_at": "2026-01-13T08:55:02.618Z",
+        "playlist": "Tutorials",
+        "duration": "10:25",
+        "view_count": 15420,
+        "is_imported": false
+      },
+      {
+        "id": "yt-1768294502618-2",
+        "video_id": "jNQXAC9IVRw",
+        "title": "Sample Video 2 - Advanced Techniques",
+        "thumbnail": "https://i.ytimg.com/vi/jNQXAC9IVRw/mqdefault.jpg",
+        "published_at": "2026-01-12T08:55:02.618Z",
+        "playlist": "Tutorials",
+        "duration": "15:42",
+        "view_count": 8730,
+        "is_imported": false
+      },
+      {
+        "id": "yt-1768294502618-3",
+        "video_id": "9bZkp7q19f0",
+        "title": "Sample Video 3 - Q&A Session",
+        "thumbnail": "https://i.ytimg.com/vi/9bZkp7q19f0/mqdefault.jpg",
+        "published_at": "2026-01-11T08:55:02.618Z",
+        "playlist": "Live Sessions",
+        "duration": "45:18",
+        "view_count": 22150,
+        "is_imported": false
+      }
+    ],
+    "channel_id": "UCgbyN_o-Guwpyqfuuz3pyIw",
+    "channel_name": "Farzad",
+    "last_synced": "2026-01-13T09:07:24.230Z",
+    "api_key": "AIzaSyApHRLmtjcdNQZfj-5RjWxpKQlttwHGeRw"
+  }
+}
