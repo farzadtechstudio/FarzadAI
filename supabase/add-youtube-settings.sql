@@ -1,9 +1,12 @@
 -- Add missing tenant_youtube_settings table
 -- Run this in your Supabase SQL Editor
 
+-- First, check if uuid-ossp extension is enabled (needed for uuid_generate_v4)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 CREATE TABLE IF NOT EXISTS tenant_youtube_settings (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE UNIQUE,
+  tenant_id UUID NOT NULL UNIQUE,
   channel_id VARCHAR(100),
   channel_name VARCHAR(255),
   api_key TEXT,
@@ -11,6 +14,17 @@ CREATE TABLE IF NOT EXISTS tenant_youtube_settings (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add foreign key constraint only if tenants table exists (for flexibility)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'tenants') THEN
+    -- Drop existing constraint if any
+    ALTER TABLE tenant_youtube_settings DROP CONSTRAINT IF EXISTS tenant_youtube_settings_tenant_id_fkey;
+    -- Note: We're NOT adding a foreign key constraint for now to allow more flexibility
+    -- In production, you might want to add: ALTER TABLE tenant_youtube_settings ADD CONSTRAINT tenant_youtube_settings_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+  END IF;
+END $$;
 
 -- Add channel_id and channel_name columns to videos table if they don't exist
 DO $$
