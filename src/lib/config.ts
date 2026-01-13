@@ -4,8 +4,10 @@
 // When ready for multi-tenant, enable Supabase in .env
 // ============================================
 
-export const USE_SUPABASE = process.env.NEXT_PUBLIC_SUPABASE_URL &&
-  process.env.NEXT_PUBLIC_SUPABASE_URL !== "your-supabase-url";
+// Check both NEXT_PUBLIC_ and non-prefixed env vars for Supabase URL
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+export const USE_SUPABASE = process.env.USE_SUPABASE === "true" ||
+  (supabaseUrl && supabaseUrl !== "your-supabase-url");
 
 // Dynamic config loader - tries to load from setup-config.json first
 let setupConfig: {
