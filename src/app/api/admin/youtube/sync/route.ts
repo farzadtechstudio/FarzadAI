@@ -380,7 +380,7 @@ export async function POST(request: NextRequest) {
 
     // Get existing video IDs
     const { data: existingVideos } = await supabase
-      .from("youtube_videos")
+      .from("videos")
       .select("video_id")
       .eq("tenant_id", tenantId);
 
@@ -405,7 +405,7 @@ export async function POST(request: NextRequest) {
       }));
 
     if (videosToInsert.length > 0) {
-      await supabase.from("youtube_videos").insert(videosToInsert);
+      await supabase.from("videos").insert(videosToInsert);
     }
 
     // Update last synced

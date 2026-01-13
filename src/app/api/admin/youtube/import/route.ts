@@ -965,7 +965,7 @@ export async function POST(request: NextRequest) {
 
     // Get the video
     const { data: video, error: videoError } = await supabase
-      .from("youtube_videos")
+      .from("videos")
       .select("*")
       .eq("tenant_id", tenantId)
       .eq("id", videoId)
@@ -990,7 +990,7 @@ export async function POST(request: NextRequest) {
 
     // Get existing videos for similar videos matching
     const { data: existingVideosData } = await supabase
-      .from("youtube_videos")
+      .from("videos")
       .select("id, video_id, title, is_imported")
       .eq("tenant_id", tenantId);
 
@@ -1009,7 +1009,7 @@ export async function POST(request: NextRequest) {
       aiAnalysis.claims = await factCheckClaimsWithGrok(aiAnalysis.claims);
     }
 
-    // Create knowledge item
+    // Create knowledge item (only include columns that exist in schema)
     const { data: knowledgeItem, error: kbError } = await supabase
       .from("knowledge_items")
       .insert({
@@ -1018,13 +1018,6 @@ export async function POST(request: NextRequest) {
         title: video.title,
         content: transcript.fullText,
         source_url: `https://youtube.com/watch?v=${video.video_id}`,
-        category: "Video Transcript",
-        playlist: video.playlist,
-        date: video.published_at,
-        length: transcript.characterCount,
-        modified_by,
-        modified_by_initials,
-        is_ai_processed: true,
       })
       .select()
       .single();
@@ -1033,10 +1026,9 @@ export async function POST(request: NextRequest) {
 
     // Update video as imported with transcript and AI analysis
     await supabase
-      .from("youtube_videos")
+      .from("videos")
       .update({
         is_imported: true,
-        knowledge_item_id: knowledgeItem.id,
         transcript: transcript,
         ai_analysis: aiAnalysis,
       })
