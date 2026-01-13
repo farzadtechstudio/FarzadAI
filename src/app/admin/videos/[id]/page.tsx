@@ -623,6 +623,43 @@ export default function VideoDetailPage() {
     );
   }
 
+  // If video has no transcript, show import prompt instead of full page
+  if (!video.transcript?.fullText) {
+    return (
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 rounded-full bg-[var(--surface)] flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-[var(--text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" x2="8" y1="13" y2="13" />
+              <line x1="16" x2="8" y1="17" y2="17" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">{video.title}</h2>
+          <p className="text-[var(--text-muted)] mb-6">
+            This video hasn&apos;t been imported yet. Import the transcript to view AI analysis and content tools.
+          </p>
+          <div className="flex items-center justify-center gap-4">
+            <button
+              onClick={() => router.push("/admin/videos")}
+              className="px-4 py-2 border border-[var(--border)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--surface)] transition-colors"
+            >
+              Back to Videos
+            </button>
+            <button
+              onClick={handleReimportTranscript}
+              disabled={isReimporting}
+              className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {isReimporting ? "Importing..." : "Import Transcript"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-[var(--background)] overflow-hidden">
       {/* Header */}
