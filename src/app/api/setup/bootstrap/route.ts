@@ -33,44 +33,63 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServerClient();
 
-    // Check if any tenants exist
-    const { data: existingTenants, error: checkError } = await supabase
-      .from("tenants")
+    // Check if any users exist
+    const { data: existingUsers, error: checkError } = await supabase
+      .from("users")
       .select("id")
       .limit(1);
 
     if (checkError) {
-      console.error("Error checking tenants:", checkError);
+      console.error("Error checking users:", checkError);
       return NextResponse.json(
         { error: "Failed to check existing setup: " + checkError.message },
         { status: 500 }
       );
     }
 
-    if (existingTenants && existingTenants.length > 0) {
+    if (existingUsers && existingUsers.length > 0) {
       return NextResponse.json(
-        { error: "Setup already completed. Tenant already exists." },
+        { error: "Setup already completed. User already exists." },
         { status: 400 }
       );
     }
 
-    // Create tenant
-    const { data: tenant, error: tenantError } = await supabase
+    // Check if tenant already exists (from schema default)
+    let tenant;
+    const { data: existingTenant, error: tenantCheckError } = await supabase
       .from("tenants")
-      .insert({
-        slug: tenantSlug,
-        brand_name: brandName,
-        settings: {},
-      })
-      .select()
+      .select("*")
+      .limit(1)
       .single();
 
-    if (tenantError) {
-      console.error("Error creating tenant:", tenantError);
-      return NextResponse.json(
-        { error: "Failed to create tenant: " + tenantError.message },
-        { status: 500 }
-      );
+    if (tenantCheckError && tenantCheckError.code !== "PGRST116") {
+      // PGRST116 = no rows found, which is fine
+      console.error("Error checking tenant:", tenantCheckError);
+    }
+
+    if (existingTenant) {
+      // Use existing tenant
+      tenant = existingTenant;
+    } else {
+      // Create new tenant
+      const { data: newTenant, error: tenantError } = await supabase
+        .from("tenants")
+        .insert({
+          slug: tenantSlug,
+          brand_name: brandName,
+          owner_name: name,
+        })
+        .select()
+        .single();
+
+      if (tenantError) {
+        console.error("Error creating tenant:", tenantError);
+        return NextResponse.json(
+          { error: "Failed to create tenant: " + tenantError.message },
+          { status: 500 }
+        );
+      }
+      tenant = newTenant;
     }
 
     // Hash password
@@ -92,8 +111,10 @@ export async function POST(request: NextRequest) {
 
     if (userError) {
       console.error("Error creating user:", userError);
-      // Try to clean up tenant
-      await supabase.from("tenants").delete().eq("id", tenant.id);
+      // Only clean up tenant if we created it (not if it existed from schema)
+      if (!existingTenant) {
+        await supabase.from("tenants").delete().eq("id", tenant.id);
+      }
       return NextResponse.json(
         { error: "Failed to create user: " + userError.message },
         { status: 500 }
@@ -136,8 +157,9 @@ export async function GET() {
 
     const supabase = createServerClient();
 
-    const { data: tenants, error } = await supabase
-      .from("tenants")
+    // Check if any users exist (not just tenants, because schema may have created default tenant)
+    const { data: users, error } = await supabase
+      .from("users")
       .select("id")
       .limit(1);
 
@@ -148,7 +170,7 @@ export async function GET() {
       );
     }
 
-    const setupRequired = !tenants || tenants.length === 0;
+    const setupRequired = !users || users.length === 0;
 
     return NextResponse.json({
       setupRequired,
