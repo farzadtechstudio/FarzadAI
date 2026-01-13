@@ -196,7 +196,7 @@ export async function GET(
     const { supabase } = await import("@/lib/supabase");
 
     const { data: video, error: videoError } = await supabase
-      .from("youtube_videos")
+      .from("videos")
       .select("*")
       .eq("tenant_id", tenantId)
       .or(`id.eq.${videoId},video_id.eq.${videoId}`)
@@ -208,7 +208,7 @@ export async function GET(
 
     // Get all imported videos to calculate topic frequency
     const { data: importedVideos } = await supabase
-      .from("youtube_videos")
+      .from("videos")
       .select("ai_analysis")
       .eq("tenant_id", tenantId)
       .eq("is_imported", true);

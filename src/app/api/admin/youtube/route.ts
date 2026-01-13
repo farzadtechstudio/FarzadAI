@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
         .eq("tenant_id", tenantId)
         .single(),
       supabase
-        .from("youtube_videos")
+        .from("videos")
         .select("*")
         .eq("tenant_id", tenantId)
         .order("published_at", { ascending: false }),
