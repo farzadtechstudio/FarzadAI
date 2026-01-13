@@ -1090,7 +1090,33 @@ export async function POST(request: NextRequest) {
       console.error("Failed to update video:", updateError);
       throw updateError;
     }
-    console.log("Video updated successfully, rows affected:", updateData?.length || 0);
+
+    const rowsAffected = updateData?.length || 0;
+    console.log("Video updated successfully, rows affected:", rowsAffected);
+
+    // CRITICAL: If no rows were affected, the update failed silently
+    if (rowsAffected === 0) {
+      console.error("Update affected 0 rows - transcript not saved!");
+      return NextResponse.json({
+        error: "Failed to save transcript - database update affected 0 rows",
+        details: "The video exists but could not be updated. Check if transcript/ai_analysis columns exist in the videos table.",
+      }, { status: 500 });
+    }
+
+    // Verify the update by fetching the video again
+    const { data: verifyVideo } = await supabase
+      .from("videos")
+      .select("transcript, ai_analysis, is_imported")
+      .eq("id", video.id)
+      .single();
+
+    if (!verifyVideo?.transcript) {
+      console.error("Verification failed - transcript not found after update");
+      return NextResponse.json({
+        error: "Failed to save transcript - verification failed",
+        details: "The update appeared to succeed but transcript is still null",
+      }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
@@ -1099,7 +1125,8 @@ export async function POST(request: NextRequest) {
       debug: {
         transcriptWordCount: transcript.wordCount,
         aiAnalysisTopics: aiAnalysis.topicTags?.length || 0,
-        updateRowsAffected: updateData?.length || 0,
+        updateRowsAffected: rowsAffected,
+        verified: true,
       }
     });
   } catch (error) {

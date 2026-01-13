@@ -26,7 +26,7 @@ BEGIN
   END IF;
 END $$;
 
--- Add channel_id and channel_name columns to videos table if they don't exist
+-- Add missing columns to videos table if they don't exist
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'videos' AND column_name = 'channel_id') THEN
@@ -35,6 +35,15 @@ BEGIN
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'videos' AND column_name = 'channel_name') THEN
     ALTER TABLE videos ADD COLUMN channel_name VARCHAR(255);
+  END IF;
+
+  -- CRITICAL: Add transcript and ai_analysis columns if they don't exist
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'videos' AND column_name = 'transcript') THEN
+    ALTER TABLE videos ADD COLUMN transcript JSONB;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'videos' AND column_name = 'ai_analysis') THEN
+    ALTER TABLE videos ADD COLUMN ai_analysis JSONB;
   END IF;
 END $$;
 
