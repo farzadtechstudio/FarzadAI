@@ -703,7 +703,7 @@ export default function VideoDetailPage() {
                       Key Insights
                     </h3>
                     <div className="space-y-3">
-                      {(video.ai_analysis.insights || video.ai_analysis.keyInsights?.map(k => ({ text: k.text, category: k.type.toLowerCase() as "analysis" | "observation", importance: 0.8 })) || []).map((insight, i) => (
+                      {(video.ai_analysis.insights || video.ai_analysis.keyInsights?.map(k => ({ text: k.text, category: k.type.toLowerCase() as "analysis" | "observation", importance: 0.8, timestamp: undefined as string | undefined })) || []).map((insight, i) => (
                         <div key={i} className="text-sm p-3 bg-[var(--background)] rounded-lg">
                           <p className="text-[var(--text-primary)]">{insight.text}</p>
                           <div className="flex items-center gap-2 mt-2">

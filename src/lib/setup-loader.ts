@@ -42,12 +42,20 @@ interface Insight {
   timestamp?: string;
 }
 
+interface FactCheck {
+  status: "verified" | "disputed" | "unverifiable" | "partially_true" | "pending";
+  explanation: string;
+  sources?: string[];
+  checkedAt: string;
+}
+
 interface Claim {
   text: string;
   type: "prediction" | "fact" | "opinion" | "projection";
   confidence: number;
   verifiable: boolean;
   timeframe?: string;
+  factCheck?: FactCheck;
 }
 
 interface SimilarVideo {

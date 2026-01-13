@@ -91,7 +91,7 @@ export async function GET(
     }
 
     // Normalize topic names (handle plurals, case variations, etc.)
-    function normalizeTopic(topic: string): string {
+    const normalizeTopic = (topic: string): string => {
       let normalized = topic.trim().toLowerCase();
 
       // Remove common suffixes for plurals
@@ -122,17 +122,17 @@ export async function GET(
       }
 
       return normalized;
-    }
+    };
 
     // Get canonical (display) name for a normalized topic
-    function getCanonicalName(normalizedTopic: string, originalNames: string[]): string {
+    const getCanonicalName = (normalizedTopic: string, originalNames: string[]): string => {
       // Return the most common original name or the first one
       const counts: Record<string, number> = {};
       for (const name of originalNames) {
         counts[name] = (counts[name] || 0) + 1;
       }
       return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || normalizedTopic;
-    }
+    };
 
     // Local mode
     if (!USE_SUPABASE || tenantId === "local") {
