@@ -300,6 +300,7 @@ export default function VideoDetailPage() {
   const [chatInput, setChatInput] = useState("");
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isReimporting, setIsReimporting] = useState(false);
+  const [showSummaryOptions, setShowSummaryOptions] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -525,6 +526,10 @@ export default function VideoDetailPage() {
     // Map action to note type
     const typeMap: Record<string, Note["type"]> = {
       "Summarize Transcript": "summary",
+      "Summary: Social Media": "summary",
+      "Summary: Research Notes": "summary",
+      "Summary: Show Notes": "summary",
+      "Summary: Style Analysis": "summary",
       "Generate Newsletter": "newsletter",
       "Create Website Description": "description",
       "Social Media Captions": "captions",
@@ -534,7 +539,25 @@ export default function VideoDetailPage() {
 
     // Map action to prompt
     const promptMap: Record<string, string> = {
-      "Summarize Transcript": "Create a comprehensive summary of this video transcript. Include the main topics, key points, and important takeaways. Format with clear sections and bullet points.",
+      // Default comprehensive summary
+      "Summarize Transcript": `Summarize this transcript into a concise overview that captures:
+
+**Main Topic/Thesis** - What is the core subject and central argument?
+**Key Points** - List the 3-5 most important ideas or claims made
+**Supporting Evidence** - What examples, data, or stories were used to support the points?
+**Conclusion/Takeaway** - What is the viewer supposed to walk away understanding or believing?
+
+Keep the summary to 250 words. Maintain the tone and perspective of the original speaker. Do not editorialize or add outside information.`,
+
+      // Summary variations
+      "Summary: Social Media": "Summarize this transcript into bullet points I can use for social media posts. Make each point punchy, quotable, and under 280 characters. Include 5-8 key points that would work as standalone posts.",
+
+      "Summary: Research Notes": "Extract the key claims, statistics, and quotes from this transcript. Format as a research reference document with: 1) Main claims with timestamps if available, 2) Any statistics or data points mentioned, 3) Notable quotes worth citing, 4) Sources or references mentioned.",
+
+      "Summary: Show Notes": "Create a timestamped summary with section headers for this transcript. Format as show notes that could accompany the video, with clear section breaks, timestamps for key moments, and a brief description of each segment.",
+
+      "Summary: Style Analysis": "Summarize this transcript while noting the speaker's rhetorical style, recurring phrases, and structural patterns. Include: 1) Content summary, 2) Speaking style observations, 3) Recurring themes or phrases, 4) Structural approach used.",
+
       "Generate Newsletter": "Write an engaging newsletter based on this video content. Include a catchy headline, introduction, key insights, and a call to action. Make it suitable for email distribution.",
       "Create Website Description": "Write a compelling website description for this video content. It should be SEO-friendly, engaging, and summarize what viewers will learn. Keep it between 150-300 words.",
       "Social Media Captions": "Create 3-5 social media captions for different platforms (Twitter/X, LinkedIn, Instagram) based on this video. Include relevant hashtags and make them engaging and shareable.",
@@ -1136,14 +1159,78 @@ export default function VideoDetailPage() {
 
               {/* Action Buttons Grid */}
               <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => handleContentAction("Summarize Transcript")}
-                  disabled={isGenerating === "Summarize Transcript"}
-                  className="flex items-center gap-2 px-4 py-3 bg-[var(--background)] rounded-xl text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors text-sm disabled:opacity-50"
-                >
-                  <DocumentIcon />
-                  {isGenerating === "Summarize Transcript" ? "Generating..." : "Summarize Transcript"}
-                </button>
+                {/* Summarize with dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSummaryOptions(!showSummaryOptions)}
+                    disabled={isGenerating?.startsWith("Summary") || isGenerating === "Summarize Transcript"}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-[var(--background)] rounded-xl text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors text-sm disabled:opacity-50"
+                  >
+                    <span className="flex items-center gap-2">
+                      <DocumentIcon />
+                      {isGenerating?.startsWith("Summary") || isGenerating === "Summarize Transcript" ? "Generating..." : "Summarize"}
+                    </span>
+                    <svg className={`w-4 h-4 transition-transform ${showSummaryOptions ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Summary Options Dropdown */}
+                  {showSummaryOptions && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg z-50 overflow-hidden">
+                      <button
+                        onClick={() => {
+                          setShowSummaryOptions(false);
+                          handleContentAction("Summarize Transcript");
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface-hover)] transition-colors border-b border-[var(--border)]"
+                      >
+                        <div className="font-medium text-[var(--text-primary)]">Comprehensive Summary</div>
+                        <div className="text-xs text-[var(--text-muted)]">Main thesis, key points, evidence & takeaways</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowSummaryOptions(false);
+                          handleContentAction("Summary: Social Media");
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface-hover)] transition-colors border-b border-[var(--border)]"
+                      >
+                        <div className="font-medium text-[var(--text-primary)]">Social Media Bullets</div>
+                        <div className="text-xs text-[var(--text-muted)]">Punchy points for posts & tweets</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowSummaryOptions(false);
+                          handleContentAction("Summary: Research Notes");
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface-hover)] transition-colors border-b border-[var(--border)]"
+                      >
+                        <div className="font-medium text-[var(--text-primary)]">Research Notes</div>
+                        <div className="text-xs text-[var(--text-muted)]">Claims, statistics & quotable moments</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowSummaryOptions(false);
+                          handleContentAction("Summary: Show Notes");
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface-hover)] transition-colors border-b border-[var(--border)]"
+                      >
+                        <div className="font-medium text-[var(--text-primary)]">Show Notes</div>
+                        <div className="text-xs text-[var(--text-muted)]">Timestamped sections & headers</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowSummaryOptions(false);
+                          handleContentAction("Summary: Style Analysis");
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface-hover)] transition-colors"
+                      >
+                        <div className="font-medium text-[var(--text-primary)]">Style Analysis</div>
+                        <div className="text-xs text-[var(--text-muted)]">Rhetorical style & patterns</div>
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => handleContentAction("Generate Newsletter")}
                   disabled={isGenerating === "Generate Newsletter"}
