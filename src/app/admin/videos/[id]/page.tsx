@@ -528,7 +528,6 @@ export default function VideoDetailPage() {
     // Map action to note type
     const typeMap: Record<string, Note["type"]> = {
       "Summarize Transcript": "summary",
-      "Summary: Social Media": "summary",
       "Summary: Research Notes": "summary",
       "Summary: Show Notes": "summary",
       "Summary: Style Analysis": "summary",
@@ -556,8 +555,6 @@ export default function VideoDetailPage() {
 Keep the summary to 250 words. Maintain the tone and perspective of the original speaker. Do not editorialize or add outside information.`,
 
       // Summary variations
-      "Summary: Social Media": "Summarize this transcript into bullet points I can use for social media posts. Make each point punchy, quotable, and under 280 characters. Include 5-8 key points that would work as standalone posts.",
-
       "Summary: Research Notes": "Extract the key claims, statistics, and quotes from this transcript. Format as a research reference document with: 1) Main claims with timestamps if available, 2) Any statistics or data points mentioned, 3) Notable quotes worth citing, 4) Sources or references mentioned.",
 
       "Summary: Show Notes": "Create a timestamped summary with section headers for this transcript. Format as show notes that could accompany the video, with clear section breaks, timestamps for key moments, and a brief description of each segment.",
@@ -1217,16 +1214,6 @@ Do not paraphrase. Do not combine separate statements into one quote.`,
                       >
                         <div className="font-medium text-[var(--text-primary)]">Comprehensive Summary</div>
                         <div className="text-xs text-[var(--text-muted)]">Main thesis, key points, evidence & takeaways</div>
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowSummaryOptions(false);
-                          handleContentAction("Summary: Social Media");
-                        }}
-                        className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface-hover)] transition-colors border-b border-[var(--border)]"
-                      >
-                        <div className="font-medium text-[var(--text-primary)]">Social Media Bullets</div>
-                        <div className="text-xs text-[var(--text-muted)]">Punchy points for posts & tweets</div>
                       </button>
                       <button
                         onClick={() => {
