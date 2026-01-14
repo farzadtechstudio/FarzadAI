@@ -296,69 +296,83 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
     }
 
     // Method 3: Use youtubei.js (uses YouTube's internal API)
-    try {
-      console.log("Trying youtubei.js library...");
-      const youtube = await Innertube.create({
-        retrieve_player: false,
+    // Skip on Vercel - youtubei.js tries to write cache files which fails on read-only filesystem
+    const isVercel = process.env.VERCEL === "1" || process.env.VERCEL === "true";
+    if (isVercel) {
+      console.log("Skipping youtubei.js on Vercel (read-only filesystem)");
+      lastFetchAttempts.push({
+        method: "youtubei.js",
+        success: false,
+        error: "Skipped",
+        details: "Not available on Vercel serverless (filesystem restrictions)"
       });
+    } else {
+      try {
+        console.log("Trying youtubei.js library...");
+        const youtube = await Innertube.create({
+          retrieve_player: false,
+          cache: undefined, // Disable caching
+          generate_session_locally: true, // Don't fetch session from YouTube
+        });
 
-      const info = await youtube.getInfo(videoId);
-      const transcriptInfo = await info.getTranscript();
+        const info = await youtube.getInfo(videoId);
+        const transcriptInfo = await info.getTranscript();
 
-      if (transcriptInfo?.transcript?.content?.body?.initial_segments) {
-        const rawSegments = transcriptInfo.transcript.content.body.initial_segments;
-        console.log(`Got ${rawSegments.length} segments from youtubei.js`);
+        if (transcriptInfo?.transcript?.content?.body?.initial_segments) {
+          const rawSegments = transcriptInfo.transcript.content.body.initial_segments;
+          console.log(`Got ${rawSegments.length} segments from youtubei.js`);
 
-        const segments: TranscriptSegment[] = rawSegments.map((seg: { snippet?: { text?: string }; start_ms?: string; end_ms?: string }) => ({
-          text: seg.snippet?.text || "",
-          start: parseInt(seg.start_ms || "0") / 1000,
-          duration: (parseInt(seg.end_ms || "0") - parseInt(seg.start_ms || "0")) / 1000,
-        })).filter((s: TranscriptSegment) => s.text.trim());
+          const segments: TranscriptSegment[] = rawSegments.map((seg: { snippet?: { text?: string }; start_ms?: string; end_ms?: string }) => ({
+            text: seg.snippet?.text || "",
+            start: parseInt(seg.start_ms || "0") / 1000,
+            duration: (parseInt(seg.end_ms || "0") - parseInt(seg.start_ms || "0")) / 1000,
+          })).filter((s: TranscriptSegment) => s.text.trim());
 
-        if (segments.length > 0) {
-          const paragraphs = mergeSegmentsIntoParagraphs(segments);
-          console.log(`Merged into ${paragraphs.length} paragraphs`);
+          if (segments.length > 0) {
+            const paragraphs = mergeSegmentsIntoParagraphs(segments);
+            console.log(`Merged into ${paragraphs.length} paragraphs`);
 
-          const fullText = paragraphs.map((s) => s.text).join(" ");
+            const fullText = paragraphs.map((s) => s.text).join(" ");
 
-          lastFetchAttempts.push({
-            method: "youtubei.js",
-            success: true,
-            details: `Got ${segments.length} segments`
-          });
+            lastFetchAttempts.push({
+              method: "youtubei.js",
+              success: true,
+              details: `Got ${segments.length} segments`
+            });
 
-          return {
-            segments: paragraphs,
-            fullText,
-            language: "en",
-            wordCount: fullText.split(/\s+/).filter(Boolean).length,
-            characterCount: fullText.length,
-          };
+            return {
+              segments: paragraphs,
+              fullText,
+              language: "en",
+              wordCount: fullText.split(/\s+/).filter(Boolean).length,
+              characterCount: fullText.length,
+            };
+          } else {
+            lastFetchAttempts.push({
+              method: "youtubei.js",
+              success: false,
+              error: "No segments",
+              details: "Transcript found but no valid segments"
+            });
+          }
         } else {
           lastFetchAttempts.push({
             method: "youtubei.js",
             success: false,
-            error: "No segments",
-            details: "Transcript found but no valid segments"
+            error: "No transcript data",
+            details: "transcriptInfo structure missing"
           });
         }
-      } else {
+      } catch (innertubeError) {
+        const errMsg = innertubeError instanceof Error ? innertubeError.message : String(innertubeError);
+        console.log("youtubei.js library failed:", innertubeError);
         lastFetchAttempts.push({
           method: "youtubei.js",
           success: false,
-          error: "No transcript data",
-          details: "transcriptInfo structure missing"
+          error: "Exception",
+          details: errMsg.substring(0, 200)
         });
       }
-    } catch (innertubeError) {
-      const errMsg = innertubeError instanceof Error ? innertubeError.message : String(innertubeError);
-      console.log("youtubei.js library failed:", innertubeError);
-      lastFetchAttempts.push({
-        method: "youtubei.js",
-        success: false,
-        error: "Exception",
-        details: errMsg.substring(0, 200)
-      });
     }
 
     // Method 4: Use youtube-transcript library
@@ -1134,17 +1148,24 @@ async function getLocalConfig(): Promise<{ youtube: YouTubeConfig; knowledgeItem
 }
 
 async function saveLocalConfig(youtube: YouTubeConfig, knowledgeItems: KnowledgeItem[]): Promise<void> {
-  const configPath = path.join(process.cwd(), "src", "lib", "setup-config.json");
-  const existingConfig = (await loadSetupConfig()) || {};
+  // Note: This function only works in local development, not on Vercel (read-only filesystem)
+  try {
+    const configPath = path.join(process.cwd(), "src", "lib", "setup-config.json");
+    const existingConfig = (await loadSetupConfig()) || {};
 
-  const updatedConfig = {
-    ...existingConfig,
-    youtube,
-    knowledgeItems,
-  };
+    const updatedConfig = {
+      ...existingConfig,
+      youtube,
+      knowledgeItems,
+    };
 
-  await fs.writeFile(configPath, JSON.stringify(updatedConfig, null, 2));
-  clearConfigCache();
+    await fs.writeFile(configPath, JSON.stringify(updatedConfig, null, 2));
+    clearConfigCache();
+  } catch (error) {
+    // On Vercel, filesystem is read-only - this is expected to fail
+    console.error("Failed to save local config (expected on Vercel):", error);
+    throw new Error("Cannot save to filesystem - use Supabase mode on Vercel");
+  }
 }
 
 export async function POST(request: NextRequest) {
