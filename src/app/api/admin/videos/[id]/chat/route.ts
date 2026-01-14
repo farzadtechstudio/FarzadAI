@@ -265,6 +265,8 @@ IMPORTANT - Always format your responses using markdown:
 - Use ### for section headings when organizing longer responses
 - Use > for quoting specific parts of the transcript
 - Keep paragraphs short and readable
+- For predictions or data with multiple attributes, prefer bullet points over tables for readability
+- Tables are okay for simple comparisons but keep them small (2-4 columns max)
 
 Always base your answers on the actual transcript and analysis provided. If something isn't covered in the transcript, say so.
 

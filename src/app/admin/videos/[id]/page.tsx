@@ -1323,7 +1323,7 @@ export default function VideoDetailPage() {
                       {msg.role === "user" ? (
                         <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                       ) : (
-                        <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-headings:mt-3 prose-headings:mb-2 prose-headings:font-semibold prose-p:my-1.5 prose-ul:my-2 prose-ul:pl-4 prose-ul:list-disc prose-ol:my-2 prose-ol:pl-4 prose-ol:list-decimal prose-li:my-1 prose-li:marker:text-[var(--text-secondary)]">
+                        <div className="text-sm prose prose-sm dark:prose-invert max-w-none prose-headings:mt-3 prose-headings:mb-2 prose-headings:font-semibold prose-p:my-1.5 prose-ul:my-2 prose-ul:pl-4 prose-ul:list-disc prose-ol:my-2 prose-ol:pl-4 prose-ol:list-decimal prose-li:my-1 prose-li:marker:text-[var(--text-secondary)] prose-table:w-full prose-table:border-collapse prose-th:border prose-th:border-[var(--border)] prose-th:bg-[var(--surface)] prose-th:px-3 prose-th:py-2 prose-th:text-left prose-td:border prose-td:border-[var(--border)] prose-td:px-3 prose-td:py-2">
                           <ReactMarkdown>{msg.content}</ReactMarkdown>
                         </div>
                       )}
@@ -1491,7 +1491,7 @@ export default function VideoDetailPage() {
 
             {/* Note Content */}
             <div className="flex-1 overflow-y-auto p-4">
-              <div className="prose prose-sm dark:prose-invert max-w-none">
+              <div className="prose prose-sm dark:prose-invert max-w-none prose-table:w-full prose-table:border-collapse prose-th:border prose-th:border-[var(--border)] prose-th:bg-[var(--surface)] prose-th:px-3 prose-th:py-2 prose-th:text-left prose-td:border prose-td:border-[var(--border)] prose-td:px-3 prose-td:py-2">
                 <ReactMarkdown>{selectedNote.content}</ReactMarkdown>
               </div>
             </div>
