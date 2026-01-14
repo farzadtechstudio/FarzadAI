@@ -1042,22 +1042,43 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     let { tenantId, videoId, modified_by, modified_by_initials, forceReimport } = body;
 
+    console.log("=== IMPORT DEBUG START ===");
+    console.log("Body received:", JSON.stringify({ tenantId, videoId, forceReimport }));
+    console.log("JWT_SECRET configured:", !!JWT_SECRET, "length:", JWT_SECRET?.length || 0);
+    console.log("USE_SUPABASE:", USE_SUPABASE);
+
     // If tenantId not provided, try to get from auth_token JWT cookie
     if (!tenantId) {
+      console.log("No tenantId in body, checking JWT cookie...");
       const cookieStore = await cookies();
       const authToken = cookieStore.get("auth_token");
+      console.log("auth_token cookie present:", !!authToken?.value, "length:", authToken?.value?.length || 0);
+
       if (authToken?.value) {
         try {
           const decoded = jwt.verify(authToken.value, JWT_SECRET) as JWTPayload;
           tenantId = decoded.tenantId;
-          console.log("Got tenantId from JWT:", tenantId);
+          console.log("JWT decoded successfully - tenantId:", tenantId, "userId:", decoded.userId, "email:", decoded.email);
         } catch (err) {
           console.error("JWT verification failed:", err);
+          // Try decoding without verification to see what's in the token
+          try {
+            const parts = authToken.value.split(".");
+            if (parts.length === 3) {
+              const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
+              console.log("JWT payload (unverified):", JSON.stringify(payload));
+            }
+          } catch {
+            console.log("Could not decode JWT payload");
+          }
         }
+      } else {
+        console.log("No auth_token cookie found");
       }
     }
 
-    console.log("Import request - tenantId:", tenantId, "videoId:", videoId, "forceReimport:", forceReimport);
+    console.log("Final values - tenantId:", tenantId, "videoId:", videoId, "forceReimport:", forceReimport);
+    console.log("=== IMPORT DEBUG END ===");
 
     if (!tenantId || !videoId) {
       return NextResponse.json(
