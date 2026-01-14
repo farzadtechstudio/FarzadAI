@@ -238,6 +238,46 @@ function formatDate(dateStr: string): string {
   });
 }
 
+// Pool of creative questions for chat suggestions
+const QUESTION_POOL = [
+  // Summary & Overview
+  "What are the main topics covered?",
+  "Give me a 3-sentence summary",
+  "What's the core message?",
+  // Predictions & Claims
+  "What predictions were made?",
+  "Any controversial claims?",
+  "What timelines were mentioned?",
+  // Insights & Analysis
+  "What are the key takeaways?",
+  "What surprised me most?",
+  "What's the most important insight?",
+  // Practical
+  "What action items came up?",
+  "Any advice for viewers?",
+  "What should I remember?",
+  // Deep dive
+  "What wasn't fully explained?",
+  "Any contradictions?",
+  "What's the sentiment overall?",
+  // Specific
+  "Who was mentioned?",
+  "Any statistics or numbers?",
+  "What examples were given?",
+];
+
+// Get 3 random questions that haven't been asked yet
+function getAvailableSuggestions(askedQuestions: string[]): string[] {
+  const askedLower = askedQuestions.map(q => q.toLowerCase());
+  const available = QUESTION_POOL.filter(q =>
+    !askedLower.some(asked => asked.includes(q.toLowerCase().slice(0, 15)))
+  );
+
+  // Shuffle and take 3
+  const shuffled = [...available].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 3);
+}
+
 export default function VideoDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -1259,7 +1299,7 @@ export default function VideoDetailPage() {
                     I have access to the full transcript and AI analysis. Ask me about topics discussed, specific claims, or request summaries.
                   </p>
                   <div className="mt-6 flex flex-wrap justify-center gap-2">
-                    {["What are the main topics?", "Summarize the key points", "What predictions were made?"].map((suggestion) => (
+                    {getAvailableSuggestions([]).map((suggestion) => (
                       <button
                         key={suggestion}
                         onClick={() => {
@@ -1350,10 +1390,7 @@ export default function VideoDetailPage() {
             <div className="p-4 border-t border-[var(--border)]">
               {/* Suggested Questions */}
               <div className="flex flex-wrap gap-2 mb-3">
-                {["What are the main topics?", "Summarize the key points", "What predictions were made?", "Key takeaways?", "What claims were fact-checked?"]
-                  .filter((s) => !chatMessages.some((m) => m.role === "user" && m.content.toLowerCase() === s.toLowerCase()))
-                  .slice(0, 3)
-                  .map((suggestion) => (
+                {getAvailableSuggestions(chatMessages.filter(m => m.role === "user").map(m => m.content)).map((suggestion) => (
                   <button
                     key={suggestion}
                     onClick={() => {
