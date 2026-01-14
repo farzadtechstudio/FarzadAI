@@ -449,7 +449,7 @@ export default function VideoDetailPage() {
     saveMessageToSupabase("user", userMessage.content);
 
     try {
-      const response = await fetch(`/api/admin/youtube/${videoId}/chat`, {
+      const response = await fetch(`/api/admin/videos/${videoId}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -497,7 +497,7 @@ export default function VideoDetailPage() {
   const fetchVideoData = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/admin/youtube/${videoId}`);
+      const response = await fetch(`/api/admin/videos/${videoId}`);
 
       if (!response.ok) {
         throw new Error("Video not found");
@@ -602,7 +602,7 @@ Maintain the speaker's perspective and tone. Do not editorialize or add outside 
     };
 
     try {
-      const response = await fetch(`/api/admin/youtube/${videoId}/chat`, {
+      const response = await fetch(`/api/admin/videos/${videoId}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -670,7 +670,7 @@ Maintain the speaker's perspective and tone. Do not editorialize or add outside 
 
     setIsReimporting(true);
     try {
-      const response = await fetch("/api/admin/youtube/import", {
+      const response = await fetch("/api/admin/videos/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1490,7 +1490,7 @@ Maintain the speaker's perspective and tone. Do not editorialize or add outside 
                             };
                             setChatMessages((prev) => [...prev, userMessage]);
                             setIsChatLoading(true);
-                            fetch(`/api/admin/youtube/${videoId}/chat`, {
+                            fetch(`/api/admin/videos/${videoId}/chat`, {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ message: suggestion, history: [] }),
@@ -1580,7 +1580,7 @@ Maintain the speaker's perspective and tone. Do not editorialize or add outside 
                       };
                       setChatMessages((prev) => [...prev, userMessage]);
                       setIsChatLoading(true);
-                      fetch(`/api/admin/youtube/${videoId}/chat`, {
+                      fetch(`/api/admin/videos/${videoId}/chat`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
