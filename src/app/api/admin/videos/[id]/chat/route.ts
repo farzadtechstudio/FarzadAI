@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadSetupConfig } from "@/lib/setup-loader";
+import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET || "local-dev-secret-change-in-production";
+
+interface JWTPayload {
+  userId: string;
+  email: string;
+  role: string;
+  tenantId: string;
+}
 
 interface Message {
   role: "user" | "assistant";
@@ -11,12 +21,68 @@ interface ChatRequest {
   history?: Message[];
 }
 
+interface TopicTag {
+  name: string;
+  confidence?: number;
+  relevance?: number;
+}
+
+interface SentimentTone {
+  overall: string;
+  confidence?: number;
+  emotions?: string[];
+  energyLevel?: string;
+}
+
+interface Insight {
+  text: string;
+  category: string;
+  importance?: number;
+  timestamp?: string;
+}
+
+interface FactCheck {
+  status: string;
+  explanation?: string;
+}
+
+interface Claim {
+  text: string;
+  type: string;
+  confidence?: number;
+  timeframe?: string;
+  factCheck?: FactCheck;
+}
+
+interface AIAnalysis {
+  topicTags?: TopicTag[];
+  sentimentTone?: SentimentTone;
+  insights?: Insight[];
+  claims?: Claim[];
+  topics?: string[];
+  sentiment?: string[];
+  keyInsights?: { text: string; type: string }[];
+}
+
+interface TranscriptData {
+  fullText: string;
+  segments?: Array<{ text: string; start: number; duration: number }>;
+}
+
+interface VideoData {
+  id: string;
+  video_id: string;
+  title: string;
+  transcript?: TranscriptData;
+  ai_analysis?: AIAnalysis;
+}
+
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const videoId = params.id;
+    const { id: videoId } = await params;
     const body: ChatRequest = await request.json();
     const { message, history = [] } = body;
 
@@ -27,24 +93,62 @@ export async function POST(
       );
     }
 
-    // Load video data
-    const config = await loadSetupConfig();
-    if (!config?.youtube?.videos) {
+    // Get tenant ID from JWT auth token
+    let tenantId: string | null = null;
+    const cookieStore = await cookies();
+    const authToken = cookieStore.get("auth_token");
+
+    if (authToken?.value) {
+      try {
+        const decoded = jwt.verify(authToken.value, JWT_SECRET) as JWTPayload;
+        tenantId = decoded.tenantId;
+      } catch (err) {
+        console.error("JWT verification failed:", err);
+        return NextResponse.json(
+          { error: "Unauthorized" },
+          { status: 401 }
+        );
+      }
+    }
+
+    if (!tenantId) {
       return NextResponse.json(
-        { error: "No videos found" },
-        { status: 404 }
+        { error: "Unauthorized - no valid session" },
+        { status: 401 }
       );
     }
 
-    const video = config.youtube.videos.find((v) => v.video_id === videoId);
-    if (!video) {
+    // Fetch video from Supabase
+    const { createServerClient } = await import("@/lib/supabase");
+    const supabase = createServerClient();
+
+    // Check if videoId looks like a UUID (for database id) or YouTube video ID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(videoId);
+
+    let query = supabase
+      .from("videos")
+      .select("id, video_id, title, transcript, ai_analysis")
+      .eq("tenant_id", tenantId);
+
+    if (isUUID) {
+      query = query.eq("id", videoId);
+    } else {
+      query = query.eq("video_id", videoId);
+    }
+
+    const { data: video, error: videoError } = await query.single();
+
+    if (videoError || !video) {
+      console.error("Video not found:", { videoId, tenantId, error: videoError });
       return NextResponse.json(
         { error: "Video not found" },
         { status: 404 }
       );
     }
 
-    if (!video.transcript) {
+    const videoData = video as VideoData;
+
+    if (!videoData.transcript) {
       return NextResponse.json(
         { error: "No transcript available for this video" },
         { status: 400 }
@@ -60,10 +164,10 @@ export async function POST(
     }
 
     // Build context from transcript and analysis
-    const transcriptText = video.transcript.fullText;
-    const analysis = video.ai_analysis;
+    const transcriptText = videoData.transcript.fullText;
+    const analysis = videoData.ai_analysis;
 
-    let contextBlock = `VIDEO TITLE: ${video.title}\n\n`;
+    let contextBlock = `VIDEO TITLE: ${videoData.title}\n\n`;
     contextBlock += `TRANSCRIPT:\n${transcriptText}\n\n`;
 
     if (analysis) {
@@ -71,11 +175,17 @@ export async function POST(
 
       if (analysis.topicTags && analysis.topicTags.length > 0) {
         contextBlock += `Topics: ${analysis.topicTags.map(t => t.name).join(", ")}\n`;
+      } else if (analysis.topics && analysis.topics.length > 0) {
+        contextBlock += `Topics: ${analysis.topics.join(", ")}\n`;
       }
 
       if (analysis.sentimentTone) {
-        contextBlock += `Sentiment: ${analysis.sentimentTone.overall} (Energy: ${analysis.sentimentTone.energyLevel})\n`;
-        if (analysis.sentimentTone.emotions?.length > 0) {
+        contextBlock += `Sentiment: ${analysis.sentimentTone.overall}`;
+        if (analysis.sentimentTone.energyLevel) {
+          contextBlock += ` (Energy: ${analysis.sentimentTone.energyLevel})`;
+        }
+        contextBlock += `\n`;
+        if (analysis.sentimentTone.emotions && analysis.sentimentTone.emotions.length > 0) {
           contextBlock += `Emotions: ${analysis.sentimentTone.emotions.join(", ")}\n`;
         }
       }
@@ -84,6 +194,11 @@ export async function POST(
         contextBlock += `\nKey Insights:\n`;
         analysis.insights.forEach((insight, i) => {
           contextBlock += `${i + 1}. [${insight.category}] ${insight.text}\n`;
+        });
+      } else if (analysis.keyInsights && analysis.keyInsights.length > 0) {
+        contextBlock += `\nKey Insights:\n`;
+        analysis.keyInsights.forEach((insight, i) => {
+          contextBlock += `${i + 1}. [${insight.type}] ${insight.text}\n`;
         });
       }
 
