@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { YoutubeTranscript } from "youtube-transcript";
 import { Innertube } from "youtubei.js";
+import { Supadata } from "@supadata/js";
 import { USE_SUPABASE } from "@/lib/config";
 import { loadSetupConfig, clearConfigCache } from "@/lib/setup-loader";
 import { promises as fs } from "fs";
@@ -221,83 +222,65 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       details: "Python not available on Vercel serverless"
     });
 
-    // Method 2: Use Supadata API (reliable for serverless)
+    // Method 2: Use Supadata SDK (reliable for serverless)
     const supadataKey = process.env.SUPADATA_API_KEY;
     console.log("SUPADATA_API_KEY present:", !!supadataKey, "length:", supadataKey?.length || 0);
     if (supadataKey) {
       try {
-        console.log("Trying Supadata API...");
+        console.log("Trying Supadata SDK...");
+        const supadata = new Supadata({ apiKey: supadataKey });
         const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const apiUrl = `https://api.supadata.ai/v1/transcript?url=${encodeURIComponent(youtubeUrl)}&text=true`;
-        console.log("Supadata API URL:", apiUrl);
+        console.log("Fetching transcript for URL:", youtubeUrl);
 
-        const response = await fetch(apiUrl, {
-          headers: {
-            "x-api-key": supadataKey,
-          },
-        });
+        const transcript = await supadata.youtube.transcript({ url: youtubeUrl });
+        console.log("Supadata SDK response:", JSON.stringify(transcript).substring(0, 500));
 
-        console.log("Supadata API response status:", response.status);
+        if (transcript && transcript.content) {
+          console.log("Got transcript from Supadata SDK, length:", transcript.content.length);
+          const fullText = transcript.content;
+          const segments: TranscriptSegment[] = [{
+            text: fullText,
+            start: 0,
+            duration: 0,
+          }];
 
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Supadata API response data:", JSON.stringify(data).substring(0, 500));
-          if (data.content) {
-            console.log("Got transcript from Supadata API, length:", data.content.length);
-            const fullText = data.content;
-            const segments: TranscriptSegment[] = [{
-              text: fullText,
-              start: 0,
-              duration: 0,
-            }];
-
-            lastFetchAttempts.push({
-              method: "Supadata API",
-              success: true,
-              details: `Got ${fullText.length} chars`
-            });
-
-            return {
-              segments,
-              fullText,
-              language: data.lang || "en",
-              wordCount: fullText.split(/\s+/).filter(Boolean).length,
-              characterCount: fullText.length,
-            };
-          } else {
-            const respStr = JSON.stringify(data).substring(0, 200);
-            console.log("Supadata API returned no content:", respStr);
-            lastFetchAttempts.push({
-              method: "Supadata API",
-              success: false,
-              error: "No content in response",
-              details: respStr
-            });
-          }
-        } else {
-          const errorText = await response.text();
-          console.log("Supadata API failed:", response.status, errorText);
           lastFetchAttempts.push({
-            method: "Supadata API",
+            method: "Supadata SDK",
+            success: true,
+            details: `Got ${fullText.length} chars`
+          });
+
+          return {
+            segments,
+            fullText,
+            language: transcript.lang || "en",
+            wordCount: fullText.split(/\s+/).filter(Boolean).length,
+            characterCount: fullText.length,
+          };
+        } else {
+          const respStr = JSON.stringify(transcript).substring(0, 200);
+          console.log("Supadata SDK returned no content:", respStr);
+          lastFetchAttempts.push({
+            method: "Supadata SDK",
             success: false,
-            error: `HTTP ${response.status}`,
-            details: errorText.substring(0, 200)
+            error: "No content in response",
+            details: respStr
           });
         }
       } catch (supadataError) {
         const errMsg = supadataError instanceof Error ? supadataError.message : String(supadataError);
-        console.log("Supadata API error:", supadataError);
+        console.log("Supadata SDK error:", supadataError);
         lastFetchAttempts.push({
-          method: "Supadata API",
+          method: "Supadata SDK",
           success: false,
           error: "Exception",
           details: errMsg.substring(0, 200)
         });
       }
     } else {
-      console.log("SUPADATA_API_KEY not set, skipping Supadata API");
+      console.log("SUPADATA_API_KEY not set, skipping Supadata SDK");
       lastFetchAttempts.push({
-        method: "Supadata API",
+        method: "Supadata SDK",
         success: false,
         error: "Skipped",
         details: "SUPADATA_API_KEY not configured"
