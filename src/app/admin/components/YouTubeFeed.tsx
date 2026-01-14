@@ -394,7 +394,7 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
         setMessage({ type: "success", text: `Imported "${video.title}"` });
         // Navigate to video detail page after short delay
         setTimeout(() => {
-          router.push(`/admin/videos/${video.video_id}`);
+          router.push(`/admin/youtube/${video.video_id}`);
         }, 500);
       } else {
         console.error("Import failed:", data);
@@ -918,7 +918,7 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
                       <div className="flex items-center justify-end gap-2">
                         {video.is_imported ? (
                           <button
-                            onClick={() => router.push(`/admin/videos/${video.video_id}`)}
+                            onClick={() => router.push(`/admin/youtube/${video.video_id}`)}
                             className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)] text-sm font-medium rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
                           >
                             <DocumentIcon className="w-4 h-4" />

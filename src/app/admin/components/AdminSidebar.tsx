@@ -37,22 +37,22 @@ interface NavSection {
 const navSections: NavSection[] = [
   {
     items: [
-      { id: "branding", label: "Branding", icon: PaletteIcon },
-      { id: "topics", label: "Topic Cards", icon: GridIcon },
+      { id: "branding", label: "Branding", icon: PaletteIcon, href: "/admin/branding" },
+      { id: "topics", label: "Topic Cards", icon: GridIcon, href: "/admin/topics" },
     ],
   },
   {
     title: "Data Source",
     items: [
-      { id: "youtube", label: "YouTube Feed", icon: YouTubeIcon, href: "/admin/videos" },
-      { id: "knowledge", label: "Knowledge Base", icon: DatabaseIcon },
+      { id: "youtube", label: "YouTube Feed", icon: YouTubeIcon, href: "/admin/youtube" },
+      { id: "knowledge", label: "Knowledge Base", icon: DatabaseIcon, href: "/admin/knowledge" },
     ],
   },
   {
     title: "Configuration",
     items: [
-      { id: "ai", label: "AI Settings", icon: BrainIcon },
-      { id: "team", label: "Team", icon: UsersIcon },
+      { id: "ai", label: "AI Settings", icon: BrainIcon, href: "/admin/ai" },
+      { id: "team", label: "Team", icon: UsersIcon, href: "/admin/team" },
     ],
   },
 ];
