@@ -138,13 +138,70 @@ interface Json3Event {
   aAppend?: number;
 }
 
+// Fetch transcript using Python youtube-transcript-api (most reliable method)
+async function fetchTranscriptViaPython(videoId: string): Promise<TranscriptData | null> {
+  try {
+    console.log("Trying Python youtube-transcript-api...");
+    const scriptPath = path.join(process.cwd(), "scripts", "fetch-transcript.py");
+
+    // Try multiple Python paths
+    const pythonPaths = ["python3", "python", "/usr/bin/python3", "/usr/local/bin/python3"];
+    let result = null;
+
+    for (const pythonCmd of pythonPaths) {
+      try {
+        const { stdout } = await execAsync(`${pythonCmd} "${scriptPath}" "${videoId}"`, {
+          timeout: 30000,
+          maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large transcripts
+        });
+        result = JSON.parse(stdout);
+        break;
+      } catch {
+        continue;
+      }
+    }
+
+    if (!result) {
+      console.log("Python not found or script failed");
+      return null;
+    }
+
+    if (!result.success) {
+      console.log("Python transcript fetch failed:", result.error);
+      return null;
+    }
+
+    console.log(`Got ${result.segments.length} segments from Python youtube-transcript-api`);
+
+    // Merge small segments into paragraphs
+    const paragraphs = mergeSegmentsIntoParagraphs(result.segments);
+    console.log(`Merged into ${paragraphs.length} paragraphs`);
+
+    return {
+      segments: paragraphs,
+      fullText: result.fullText,
+      language: result.language || "en",
+      wordCount: result.wordCount,
+      characterCount: result.characterCount,
+    };
+  } catch (error) {
+    console.log("Python transcript fetch error:", error);
+    return null;
+  }
+}
+
 // Fetch YouTube transcript using multiple methods with fallbacks
 async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData | null> {
   try {
     console.log("Fetching transcript for video:", videoId);
 
-    // Method 1: Use Supadata API (most reliable for serverless - free tier available)
-    // Sign up at https://supadata.ai for API key
+    // Method 1: Use Python youtube-transcript-api (most reliable)
+    const pythonTranscript = await fetchTranscriptViaPython(videoId);
+    if (pythonTranscript) {
+      return pythonTranscript;
+    }
+
+    // Method 2: Use Supadata API (reliable for serverless if Python not available)
     const supadataKey = process.env.SUPADATA_API_KEY;
     if (supadataKey) {
       try {
@@ -163,7 +220,6 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
           if (data.content) {
             console.log("Got transcript from Supadata API");
             const fullText = data.content;
-            // Create a single segment with the full text for simplicity
             const segments: TranscriptSegment[] = [{
               text: fullText,
               start: 0,
@@ -186,7 +242,7 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       }
     }
 
-    // Method 2: Use youtubei.js (uses YouTube's internal API)
+    // Method 3: Use youtubei.js (uses YouTube's internal API)
     try {
       console.log("Trying youtubei.js library...");
       const youtube = await Innertube.create({
@@ -225,7 +281,7 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       console.log("youtubei.js library failed:", innertubeError);
     }
 
-    // Method 3: Use youtube-transcript library
+    // Method 4: Use youtube-transcript library
     try {
       console.log("Trying youtube-transcript library...");
       const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
@@ -235,11 +291,10 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
 
         const segments: TranscriptSegment[] = transcriptItems.map((item) => ({
           text: item.text,
-          start: item.offset / 1000, // Convert ms to seconds
+          start: item.offset / 1000,
           duration: item.duration / 1000,
         }));
 
-        // Merge small segments into paragraphs
         const paragraphs = mergeSegmentsIntoParagraphs(segments);
         console.log(`Merged into ${paragraphs.length} paragraphs`);
 
@@ -257,14 +312,14 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       console.log("youtube-transcript library failed:", libError);
     }
 
-    // Method 4: Try web scraping as fallback
+    // Method 5: Try web scraping as fallback
     console.log("Falling back to web scraping...");
     const scrapedTranscript = await fetchTranscriptViaScraping(videoId);
     if (scrapedTranscript) {
       return scrapedTranscript;
     }
 
-    // Method 5: Try yt-dlp (only works locally, not on Vercel)
+    // Method 6: Try yt-dlp (only works locally)
     console.log("Trying yt-dlp...");
     const ytdlpTranscript = await fetchTranscriptViaYtdlp(videoId);
     if (ytdlpTranscript) {
