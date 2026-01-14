@@ -1208,7 +1208,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // On Vercel, always use Supabase mode (filesystem is read-only)
+    const isVercelEnv = process.env.VERCEL === "1" || process.env.VERCEL === "true";
+    const shouldUseSupabase = USE_SUPABASE || isVercelEnv;
+
     console.log("Final values - tenantId:", tenantId, "videoId:", videoId, "forceReimport:", forceReimport);
+    console.log("USE_SUPABASE:", USE_SUPABASE, "isVercel:", isVercelEnv, "shouldUseSupabase:", shouldUseSupabase);
     console.log("=== IMPORT DEBUG END ===");
 
     if (!tenantId || !videoId) {
@@ -1219,15 +1224,16 @@ export async function POST(request: NextRequest) {
             tenantId,
             videoId,
             jwtSecretConfigured: !!JWT_SECRET,
-            useSupabase: USE_SUPABASE
+            useSupabase: shouldUseSupabase,
+            isVercel: isVercelEnv
           }
         },
         { status: 400 }
       );
     }
 
-    // Local mode
-    if (!USE_SUPABASE || tenantId === "local") {
+    // Local mode - only for local development, never on Vercel
+    if (!shouldUseSupabase && tenantId === "local") {
       const { youtube, knowledgeItems } = await getLocalConfig();
 
       // Find the video
