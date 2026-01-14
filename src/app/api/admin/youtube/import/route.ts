@@ -232,12 +232,20 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
         const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
         console.log("Fetching transcript for URL:", youtubeUrl);
 
-        const transcript = await supadata.youtube.transcript({ url: youtubeUrl });
+        const transcript = await supadata.youtube.transcript({ url: youtubeUrl, text: true });
         console.log("Supadata SDK response:", JSON.stringify(transcript).substring(0, 500));
 
         if (transcript && transcript.content) {
-          console.log("Got transcript from Supadata SDK, length:", transcript.content.length);
-          const fullText = transcript.content;
+          // content can be string (when text: true) or TranscriptChunk[] (when text: false)
+          let fullText: string;
+          if (typeof transcript.content === "string") {
+            fullText = transcript.content;
+          } else {
+            // It's an array of chunks, concatenate the text
+            fullText = transcript.content.map((chunk: { text: string }) => chunk.text).join(" ");
+          }
+
+          console.log("Got transcript from Supadata SDK, length:", fullText.length);
           const segments: TranscriptSegment[] = [{
             text: fullText,
             start: 0,
