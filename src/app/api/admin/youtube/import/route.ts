@@ -206,8 +206,9 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
     if (supadataKey) {
       try {
         console.log("Trying Supadata API...");
+        const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
         const response = await fetch(
-          `https://api.supadata.ai/v1/youtube/transcript?video_id=${videoId}&text=true`,
+          `https://api.supadata.ai/v1/transcript?url=${encodeURIComponent(youtubeUrl)}&text=true`,
           {
             headers: {
               "x-api-key": supadataKey,
@@ -215,10 +216,13 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
           }
         );
 
+        console.log("Supadata API response status:", response.status);
+
         if (response.ok) {
           const data = await response.json();
+          console.log("Supadata API response data:", JSON.stringify(data).substring(0, 200));
           if (data.content) {
-            console.log("Got transcript from Supadata API");
+            console.log("Got transcript from Supadata API, length:", data.content.length);
             const fullText = data.content;
             const segments: TranscriptSegment[] = [{
               text: fullText,
@@ -235,7 +239,8 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
             };
           }
         } else {
-          console.log("Supadata API failed:", response.status);
+          const errorText = await response.text();
+          console.log("Supadata API failed:", response.status, errorText);
         }
       } catch (supadataError) {
         console.log("Supadata API error:", supadataError);
