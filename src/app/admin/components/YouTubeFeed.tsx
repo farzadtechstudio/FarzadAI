@@ -398,7 +398,34 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
         }, 500);
       } else {
         console.error("Import failed:", data);
-        setMessage({ type: "error", text: data.error || data.details || "Failed to import video" });
+        // Build detailed error message including debug info
+        let errorMsg = data.error || "Failed to import video";
+        if (data.details) {
+          errorMsg += ` - ${data.details}`;
+        }
+        // Show env check info
+        if (data.envCheck) {
+          const envInfo = [];
+          if (!data.envCheck.SUPADATA_API_KEY) {
+            envInfo.push("SUPADATA_API_KEY not set");
+          } else {
+            envInfo.push(`SUPADATA_API_KEY: ${data.envCheck.SUPADATA_KEY_LENGTH} chars`);
+          }
+          if (envInfo.length > 0) {
+            errorMsg += ` [ENV: ${envInfo.join(", ")}]`;
+          }
+        }
+        // Show method attempts summary
+        if (data.attempts && Array.isArray(data.attempts)) {
+          const failedMethods = data.attempts
+            .filter((a: { success: boolean }) => !a.success)
+            .map((a: { method: string; error?: string; details?: string }) => `${a.method}: ${a.error || "failed"}${a.details ? ` (${a.details.substring(0, 50)})` : ""}`)
+            .join(" | ");
+          if (failedMethods) {
+            errorMsg += ` [Methods: ${failedMethods}]`;
+          }
+        }
+        setMessage({ type: "error", text: errorMsg });
       }
     } catch (error) {
       console.error("Import error:", error);

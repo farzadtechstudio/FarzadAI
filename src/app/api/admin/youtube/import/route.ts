@@ -190,18 +190,38 @@ async function fetchTranscriptViaPython(videoId: string): Promise<TranscriptData
   }
 }
 
+// Store debug info about transcript fetch attempts
+interface FetchAttemptDebug {
+  method: string;
+  success: boolean;
+  error?: string;
+  details?: string;
+}
+
+let lastFetchAttempts: FetchAttemptDebug[] = [];
+
+function getLastFetchAttempts(): FetchAttemptDebug[] {
+  return lastFetchAttempts;
+}
+
 // Fetch YouTube transcript using multiple methods with fallbacks
 async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData | null> {
+  // Reset debug info for this fetch
+  lastFetchAttempts = [];
+
   try {
     console.log("Fetching transcript for video:", videoId);
 
-    // Method 1: Use Python youtube-transcript-api (most reliable)
-    const pythonTranscript = await fetchTranscriptViaPython(videoId);
-    if (pythonTranscript) {
-      return pythonTranscript;
-    }
+    // Method 1: Use Python youtube-transcript-api (most reliable) - SKIP on Vercel
+    // Python is not available on Vercel serverless functions
+    lastFetchAttempts.push({
+      method: "Python youtube-transcript-api",
+      success: false,
+      error: "Skipped",
+      details: "Python not available on Vercel serverless"
+    });
 
-    // Method 2: Use Supadata API (reliable for serverless if Python not available)
+    // Method 2: Use Supadata API (reliable for serverless)
     const supadataKey = process.env.SUPADATA_API_KEY;
     console.log("SUPADATA_API_KEY present:", !!supadataKey, "length:", supadataKey?.length || 0);
     if (supadataKey) {
@@ -221,7 +241,7 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
 
         if (response.ok) {
           const data = await response.json();
-          console.log("Supadata API response data:", JSON.stringify(data).substring(0, 200));
+          console.log("Supadata API response data:", JSON.stringify(data).substring(0, 500));
           if (data.content) {
             console.log("Got transcript from Supadata API, length:", data.content.length);
             const fullText = data.content;
@@ -231,6 +251,12 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
               duration: 0,
             }];
 
+            lastFetchAttempts.push({
+              method: "Supadata API",
+              success: true,
+              details: `Got ${fullText.length} chars`
+            });
+
             return {
               segments,
               fullText,
@@ -239,17 +265,43 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
               characterCount: fullText.length,
             };
           } else {
-            console.log("Supadata API returned no content:", JSON.stringify(data));
+            const respStr = JSON.stringify(data).substring(0, 200);
+            console.log("Supadata API returned no content:", respStr);
+            lastFetchAttempts.push({
+              method: "Supadata API",
+              success: false,
+              error: "No content in response",
+              details: respStr
+            });
           }
         } else {
           const errorText = await response.text();
           console.log("Supadata API failed:", response.status, errorText);
+          lastFetchAttempts.push({
+            method: "Supadata API",
+            success: false,
+            error: `HTTP ${response.status}`,
+            details: errorText.substring(0, 200)
+          });
         }
       } catch (supadataError) {
+        const errMsg = supadataError instanceof Error ? supadataError.message : String(supadataError);
         console.log("Supadata API error:", supadataError);
+        lastFetchAttempts.push({
+          method: "Supadata API",
+          success: false,
+          error: "Exception",
+          details: errMsg.substring(0, 200)
+        });
       }
     } else {
       console.log("SUPADATA_API_KEY not set, skipping Supadata API");
+      lastFetchAttempts.push({
+        method: "Supadata API",
+        success: false,
+        error: "Skipped",
+        details: "SUPADATA_API_KEY not configured"
+      });
     }
 
     // Method 3: Use youtubei.js (uses YouTube's internal API)
@@ -278,6 +330,12 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
 
           const fullText = paragraphs.map((s) => s.text).join(" ");
 
+          lastFetchAttempts.push({
+            method: "youtubei.js",
+            success: true,
+            details: `Got ${segments.length} segments`
+          });
+
           return {
             segments: paragraphs,
             fullText,
@@ -285,10 +343,31 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
             wordCount: fullText.split(/\s+/).filter(Boolean).length,
             characterCount: fullText.length,
           };
+        } else {
+          lastFetchAttempts.push({
+            method: "youtubei.js",
+            success: false,
+            error: "No segments",
+            details: "Transcript found but no valid segments"
+          });
         }
+      } else {
+        lastFetchAttempts.push({
+          method: "youtubei.js",
+          success: false,
+          error: "No transcript data",
+          details: "transcriptInfo structure missing"
+        });
       }
     } catch (innertubeError) {
+      const errMsg = innertubeError instanceof Error ? innertubeError.message : String(innertubeError);
       console.log("youtubei.js library failed:", innertubeError);
+      lastFetchAttempts.push({
+        method: "youtubei.js",
+        success: false,
+        error: "Exception",
+        details: errMsg.substring(0, 200)
+      });
     }
 
     // Method 4: Use youtube-transcript library
@@ -310,6 +389,12 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
 
         const fullText = paragraphs.map((s) => s.text).join(" ");
 
+        lastFetchAttempts.push({
+          method: "youtube-transcript",
+          success: true,
+          details: `Got ${transcriptItems.length} segments`
+        });
+
         return {
           segments: paragraphs,
           fullText,
@@ -317,29 +402,63 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
           wordCount: fullText.split(/\s+/).filter(Boolean).length,
           characterCount: fullText.length,
         };
+      } else {
+        lastFetchAttempts.push({
+          method: "youtube-transcript",
+          success: false,
+          error: "Empty result",
+          details: "Library returned 0 segments"
+        });
       }
     } catch (libError) {
+      const errMsg = libError instanceof Error ? libError.message : String(libError);
       console.log("youtube-transcript library failed:", libError);
+      lastFetchAttempts.push({
+        method: "youtube-transcript",
+        success: false,
+        error: "Exception",
+        details: errMsg.substring(0, 200)
+      });
     }
 
     // Method 5: Try web scraping as fallback
     console.log("Falling back to web scraping...");
     const scrapedTranscript = await fetchTranscriptViaScraping(videoId);
     if (scrapedTranscript) {
+      lastFetchAttempts.push({
+        method: "Web scraping",
+        success: true,
+        details: `Got ${scrapedTranscript.segments.length} segments`
+      });
       return scrapedTranscript;
+    } else {
+      lastFetchAttempts.push({
+        method: "Web scraping",
+        success: false,
+        error: "Failed",
+        details: "Could not scrape captions from YouTube page"
+      });
     }
 
-    // Method 6: Try yt-dlp (only works locally)
-    console.log("Trying yt-dlp...");
-    const ytdlpTranscript = await fetchTranscriptViaYtdlp(videoId);
-    if (ytdlpTranscript) {
-      return ytdlpTranscript;
-    }
+    // Method 6: Try yt-dlp (only works locally) - SKIP on Vercel
+    lastFetchAttempts.push({
+      method: "yt-dlp",
+      success: false,
+      error: "Skipped",
+      details: "yt-dlp not available on Vercel serverless"
+    });
 
     console.log("All transcript fetch methods failed");
     return null;
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
     console.error("Error fetching transcript:", error);
+    lastFetchAttempts.push({
+      method: "Overall",
+      success: false,
+      error: "Top-level exception",
+      details: errMsg.substring(0, 200)
+    });
     return null;
   }
 }
@@ -1082,7 +1201,15 @@ export async function POST(request: NextRequest) {
 
     if (!tenantId || !videoId) {
       return NextResponse.json(
-        { error: "Tenant ID and video ID required", debug: { tenantId, videoId } },
+        {
+          error: "Tenant ID and video ID required",
+          debug: {
+            tenantId,
+            videoId,
+            jwtSecretConfigured: !!JWT_SECRET,
+            useSupabase: USE_SUPABASE
+          }
+        },
         { status: 400 }
       );
     }
@@ -1114,10 +1241,16 @@ export async function POST(request: NextRequest) {
       const transcript = await fetchYouTubeTranscript(video.video_id);
       if (!transcript) {
         console.error("All transcript fetch methods failed for video:", video.video_id);
+        const attempts = getLastFetchAttempts();
         return NextResponse.json({
           error: "Could not fetch transcript for this video",
-          details: "The video may not have captions enabled, or YouTube is blocking transcript access. Try again in a few minutes.",
+          details: "All transcript fetch methods failed. See 'attempts' for details.",
           videoId: video.video_id,
+          attempts: attempts,
+          envCheck: {
+            SUPADATA_API_KEY: !!process.env.SUPADATA_API_KEY,
+            SUPADATA_KEY_LENGTH: process.env.SUPADATA_API_KEY?.length || 0,
+          }
         }, { status: 422 });
       }
 
@@ -1216,10 +1349,17 @@ export async function POST(request: NextRequest) {
     const transcript = await fetchYouTubeTranscript(video.video_id);
     if (!transcript) {
       console.error("All transcript fetch methods failed for video:", video.video_id);
+      const attempts = getLastFetchAttempts();
+      console.log("Fetch attempts debug:", JSON.stringify(attempts));
       return NextResponse.json({
         error: "Could not fetch transcript for this video",
-        details: "The video may not have captions enabled, or YouTube is blocking transcript access. Try again in a few minutes.",
+        details: "All transcript fetch methods failed. See 'attempts' for details.",
         videoId: video.video_id,
+        attempts: attempts,
+        envCheck: {
+          SUPADATA_API_KEY: !!process.env.SUPADATA_API_KEY,
+          SUPADATA_KEY_LENGTH: process.env.SUPADATA_API_KEY?.length || 0,
+        }
       }, { status: 422 });
     }
     console.log("Transcript obtained, wordCount:", transcript.wordCount);
