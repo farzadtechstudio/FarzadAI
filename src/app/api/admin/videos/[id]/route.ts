@@ -247,10 +247,21 @@ export async function GET(
 
     if (videoError || !video) {
       console.error("Video not found:", { videoId, tenantId, isUUID, error: videoError });
+
+      // Debug: Try to find if video exists with any tenant
+      const { data: anyVideo } = await supabase
+        .from("videos")
+        .select("id, video_id, tenant_id")
+        .eq("video_id", videoId)
+        .single();
+
       return NextResponse.json({
         error: "Video not found",
         details: videoError?.message,
-        searchedFor: { videoId, tenantId, searchedBy: isUUID ? "id" : "video_id" }
+        debug: {
+          searchedFor: { videoId, tenantId, searchedBy: isUUID ? "id" : "video_id" },
+          videoExistsWithDifferentTenant: anyVideo ? { actualTenantId: anyVideo.tenant_id } : null,
+        }
       }, { status: 404 });
     }
 
