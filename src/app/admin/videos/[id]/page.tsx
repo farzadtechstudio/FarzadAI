@@ -301,6 +301,7 @@ export default function VideoDetailPage() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isReimporting, setIsReimporting] = useState(false);
   const [showSummaryOptions, setShowSummaryOptions] = useState(false);
+  const [copiedNote, setCopiedNote] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -1574,15 +1575,53 @@ Keep the summary to 250 words. Maintain the tone and perspective of the original
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                {/* Copy Button */}
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(selectedNote.content);
+                    setCopiedNote(true);
+                    setTimeout(() => setCopiedNote(false), 2000);
                   }}
-                  className="px-3 py-1.5 text-xs rounded-lg hover:bg-[var(--background)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg hover:bg-[var(--background)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                  title="Copy to clipboard"
                 >
-                  Copy
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    {copiedNote ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    ) : (
+                      <>
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </>
+                    )}
+                  </svg>
+                  {copiedNote ? "Copied!" : "Copy"}
                 </button>
+
+                {/* Download Button */}
+                <button
+                  onClick={() => {
+                    const blob = new Blob([selectedNote.content], { type: "text/markdown" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${selectedNote.title.replace(/[^a-z0-9]/gi, "-").toLowerCase()}.md`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg hover:bg-[var(--background)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+                  title="Download as markdown"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download
+                </button>
+
+                {/* Delete Button */}
                 <button
                   onClick={async () => {
                     const noteIdToDelete = selectedNote.id;
@@ -1601,13 +1640,20 @@ Keep the summary to 250 words. Maintain the tone and perspective of the original
                       }
                     }
                   }}
-                  className="px-3 py-1.5 text-xs rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-500"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-500"
+                  title="Delete note"
                 >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
                   Delete
                 </button>
+
+                {/* Close Button */}
                 <button
                   onClick={() => setSelectedNote(null)}
-                  className="p-2 rounded-lg hover:bg-[var(--background)] transition-colors text-[var(--text-secondary)]"
+                  className="p-2 rounded-lg hover:bg-[var(--background)] transition-colors text-[var(--text-secondary)] ml-1"
+                  title="Close"
                 >
                   <CloseIcon />
                 </button>
