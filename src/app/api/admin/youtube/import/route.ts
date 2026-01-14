@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import { YoutubeTranscript } from "youtube-transcript";
 import { USE_SUPABASE } from "@/lib/config";
 import { loadSetupConfig, clearConfigCache } from "@/lib/setup-loader";
 import { promises as fs } from "fs";
@@ -136,11 +137,68 @@ interface Json3Event {
   aAppend?: number;
 }
 
-// Fetch YouTube transcript using yt-dlp
+// Fetch YouTube transcript using youtube-transcript library (works on Vercel)
 async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData | null> {
   try {
     console.log("Fetching transcript for video:", videoId);
 
+    // Method 1: Use youtube-transcript library (most reliable for serverless)
+    try {
+      console.log("Trying youtube-transcript library...");
+      const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
+
+      if (transcriptItems && transcriptItems.length > 0) {
+        console.log(`Got ${transcriptItems.length} segments from youtube-transcript library`);
+
+        const segments: TranscriptSegment[] = transcriptItems.map((item) => ({
+          text: item.text,
+          start: item.offset / 1000, // Convert ms to seconds
+          duration: item.duration / 1000,
+        }));
+
+        // Merge small segments into paragraphs
+        const paragraphs = mergeSegmentsIntoParagraphs(segments);
+        console.log(`Merged into ${paragraphs.length} paragraphs`);
+
+        const fullText = paragraphs.map((s) => s.text).join(" ");
+
+        return {
+          segments: paragraphs,
+          fullText,
+          language: "en",
+          wordCount: fullText.split(/\s+/).filter(Boolean).length,
+          characterCount: fullText.length,
+        };
+      }
+    } catch (libError) {
+      console.log("youtube-transcript library failed:", libError);
+    }
+
+    // Method 2: Try web scraping as fallback
+    console.log("Falling back to web scraping...");
+    const scrapedTranscript = await fetchTranscriptViaScraping(videoId);
+    if (scrapedTranscript) {
+      return scrapedTranscript;
+    }
+
+    // Method 3: Try yt-dlp (only works locally, not on Vercel)
+    console.log("Trying yt-dlp...");
+    const ytdlpTranscript = await fetchTranscriptViaYtdlp(videoId);
+    if (ytdlpTranscript) {
+      return ytdlpTranscript;
+    }
+
+    console.log("All transcript fetch methods failed");
+    return null;
+  } catch (error) {
+    console.error("Error fetching transcript:", error);
+    return null;
+  }
+}
+
+// Fetch transcript using yt-dlp (local development only)
+async function fetchTranscriptViaYtdlp(videoId: string): Promise<TranscriptData | null> {
+  try {
     const tmpDir = os.tmpdir();
     const outputPath = path.join(tmpDir, `yt_transcript_${videoId}`);
     const subtitlePath = `${outputPath}.en.json3`;
@@ -166,8 +224,8 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
     }
 
     if (!ytdlpCmd) {
-      console.log("yt-dlp not found, falling back to web scraping");
-      return await fetchTranscriptViaScraping(videoId);
+      console.log("yt-dlp not found");
+      return null;
     }
 
     // Download auto-generated subtitles
@@ -177,7 +235,7 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       await execAsync(cmd, { timeout: 60000 });
     } catch (execError) {
       console.log("yt-dlp command failed:", execError);
-      return await fetchTranscriptViaScraping(videoId);
+      return null;
     }
 
     // Read and parse the subtitle file
@@ -185,28 +243,23 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
     try {
       subtitleContent = await fs.readFile(subtitlePath, "utf8");
     } catch {
-      console.log("Subtitle file not found, trying alt path");
-      // Try alternative naming
       const altPath = path.join(tmpDir, `yt_transcript_${videoId}.en.json3`);
       try {
         subtitleContent = await fs.readFile(altPath, "utf8");
       } catch {
-        console.log("No subtitle file found");
-        return await fetchTranscriptViaScraping(videoId);
+        return null;
       }
     }
 
     const json3Data = JSON.parse(subtitleContent);
     const events: Json3Event[] = json3Data.events || [];
 
-    // Parse segments from json3 format
     const segments: TranscriptSegment[] = [];
     let currentText = "";
     let currentStart = 0;
 
     for (const event of events) {
       if (event.segs && !event.aAppend) {
-        // New segment - save previous if exists
         if (currentText.trim()) {
           segments.push({
             text: currentText.trim(),
@@ -217,12 +270,10 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
         currentStart = event.tStartMs || 0;
         currentText = event.segs.map((s) => s.utf8).join("");
       } else if (event.segs && event.aAppend) {
-        // Append to current segment
         currentText += event.segs.map((s) => s.utf8).join("");
       }
     }
 
-    // Add final segment
     if (currentText.trim()) {
       segments.push({
         text: currentText.trim(),
@@ -231,24 +282,17 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       });
     }
 
-    // Clean up temp file
     try {
       await fs.unlink(subtitlePath);
     } catch {
-      // Ignore cleanup errors
+      // Ignore
     }
 
     if (segments.length === 0) {
-      console.log("No segments parsed from subtitle file");
       return null;
     }
 
-    console.log(`Parsed ${segments.length} raw transcript segments`);
-
-    // Merge small segments into logical paragraphs
     const paragraphs = mergeSegmentsIntoParagraphs(segments);
-    console.log(`Merged into ${paragraphs.length} paragraphs`);
-
     const fullText = paragraphs.map((s) => s.text).join(" ");
 
     return {
@@ -259,7 +303,7 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       characterCount: fullText.length,
     };
   } catch (error) {
-    console.error("Error fetching transcript:", error);
+    console.error("yt-dlp fetch failed:", error);
     return null;
   }
 }
