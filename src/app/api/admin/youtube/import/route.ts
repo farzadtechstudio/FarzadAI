@@ -203,18 +203,19 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
 
     // Method 2: Use Supadata API (reliable for serverless if Python not available)
     const supadataKey = process.env.SUPADATA_API_KEY;
+    console.log("SUPADATA_API_KEY present:", !!supadataKey, "length:", supadataKey?.length || 0);
     if (supadataKey) {
       try {
         console.log("Trying Supadata API...");
         const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const response = await fetch(
-          `https://api.supadata.ai/v1/transcript?url=${encodeURIComponent(youtubeUrl)}&text=true`,
-          {
-            headers: {
-              "x-api-key": supadataKey,
-            },
-          }
-        );
+        const apiUrl = `https://api.supadata.ai/v1/transcript?url=${encodeURIComponent(youtubeUrl)}&text=true`;
+        console.log("Supadata API URL:", apiUrl);
+
+        const response = await fetch(apiUrl, {
+          headers: {
+            "x-api-key": supadataKey,
+          },
+        });
 
         console.log("Supadata API response status:", response.status);
 
@@ -237,6 +238,8 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
               wordCount: fullText.split(/\s+/).filter(Boolean).length,
               characterCount: fullText.length,
             };
+          } else {
+            console.log("Supadata API returned no content:", JSON.stringify(data));
           }
         } else {
           const errorText = await response.text();
@@ -245,6 +248,8 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       } catch (supadataError) {
         console.log("Supadata API error:", supadataError);
       }
+    } else {
+      console.log("SUPADATA_API_KEY not set, skipping Supadata API");
     }
 
     // Method 3: Use youtubei.js (uses YouTube's internal API)
