@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { YoutubeTranscript } from "youtube-transcript";
+import { Innertube } from "youtubei.js";
 import { USE_SUPABASE } from "@/lib/config";
 import { loadSetupConfig, clearConfigCache } from "@/lib/setup-loader";
 import { promises as fs } from "fs";
@@ -137,12 +138,51 @@ interface Json3Event {
   aAppend?: number;
 }
 
-// Fetch YouTube transcript using youtube-transcript library (works on Vercel)
+// Fetch YouTube transcript using multiple methods with fallbacks
 async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData | null> {
   try {
     console.log("Fetching transcript for video:", videoId);
 
-    // Method 1: Use youtube-transcript library (most reliable for serverless)
+    // Method 1: Use youtubei.js (most reliable for serverless - uses YouTube's internal API)
+    try {
+      console.log("Trying youtubei.js library...");
+      const youtube = await Innertube.create({
+        retrieve_player: false,
+      });
+
+      const info = await youtube.getInfo(videoId);
+      const transcriptInfo = await info.getTranscript();
+
+      if (transcriptInfo?.transcript?.content?.body?.initial_segments) {
+        const rawSegments = transcriptInfo.transcript.content.body.initial_segments;
+        console.log(`Got ${rawSegments.length} segments from youtubei.js`);
+
+        const segments: TranscriptSegment[] = rawSegments.map((seg: { snippet?: { text?: string }; start_ms?: string; end_ms?: string }) => ({
+          text: seg.snippet?.text || "",
+          start: parseInt(seg.start_ms || "0") / 1000,
+          duration: (parseInt(seg.end_ms || "0") - parseInt(seg.start_ms || "0")) / 1000,
+        })).filter((s: TranscriptSegment) => s.text.trim());
+
+        if (segments.length > 0) {
+          const paragraphs = mergeSegmentsIntoParagraphs(segments);
+          console.log(`Merged into ${paragraphs.length} paragraphs`);
+
+          const fullText = paragraphs.map((s) => s.text).join(" ");
+
+          return {
+            segments: paragraphs,
+            fullText,
+            language: "en",
+            wordCount: fullText.split(/\s+/).filter(Boolean).length,
+            characterCount: fullText.length,
+          };
+        }
+      }
+    } catch (innertubeError) {
+      console.log("youtubei.js library failed:", innertubeError);
+    }
+
+    // Method 2: Use youtube-transcript library
     try {
       console.log("Trying youtube-transcript library...");
       const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
@@ -174,14 +214,14 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       console.log("youtube-transcript library failed:", libError);
     }
 
-    // Method 2: Try web scraping as fallback
+    // Method 3: Try web scraping as fallback
     console.log("Falling back to web scraping...");
     const scrapedTranscript = await fetchTranscriptViaScraping(videoId);
     if (scrapedTranscript) {
       return scrapedTranscript;
     }
 
-    // Method 3: Try yt-dlp (only works locally, not on Vercel)
+    // Method 4: Try yt-dlp (only works locally, not on Vercel)
     console.log("Trying yt-dlp...");
     const ytdlpTranscript = await fetchTranscriptViaYtdlp(videoId);
     if (ytdlpTranscript) {
@@ -867,36 +907,6 @@ Status meanings:
   return factCheckedClaims;
 }
 
-// Fallback mock transcript for when YouTube captions are unavailable
-function getMockTranscript(videoId: string, title: string): TranscriptData {
-  const mockText = `Okay, everybody. I need to talk about something that's been on my mind for quite a while. Something fundamental about ${title.toLowerCase()} that nobody really talks about. And I think it explains why so many smart, so many genuinely intelligent people never build wealth. And I'm talking about optimism versus pessimism.
-
-I've come to the conclusion that the only way to actually become a good investor is by being an optimistic person. Not being delusional, not ignoring risk, but actually genuinely believing that positive outcomes are possible. If you're pessimistic, you literally cannot invest. And I mean that in the most literal sense.
-
-You are incapable of being an investor if you're pessimistic. Think about what investing actually is. When you put money into something, whether that's a stock, a company, real estate, whatever, you are fundamentally making a bet that a positive outcome exists in the subset of possibilities.
-
-You're literally saying, I believe this can work out well. That's the entire game. That's the whole thing. This is what every single investment decision boils down to. Do you believe good things can happen?
-
-Pessimistic people are literally incapable of seeing positive outcomes as likely. The entire worldview filters out the possibility of things working out. They can articulate all the reasons why something won't work. They can see every risk, every downside, every potential failure.
-
-Thank you for watching! If you found this helpful, please like and subscribe for more content.`;
-
-  const sentences = mockText.split(/[.\n]+/).filter((s) => s.trim());
-  const segments: TranscriptSegment[] = sentences.map((text, i) => ({
-    text: text.trim(),
-    start: i * 15,
-    duration: 14,
-  }));
-
-  return {
-    segments,
-    fullText: mockText,
-    language: "en",
-    wordCount: mockText.split(/\s+/).filter(Boolean).length,
-    characterCount: mockText.length,
-  };
-}
-
 async function getLocalConfig(): Promise<{ youtube: YouTubeConfig; knowledgeItems: KnowledgeItem[] }> {
   const setup = await loadSetupConfig();
   return {
@@ -971,11 +981,15 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Try to fetch real transcript, fall back to mock if unavailable
-      let transcript = await fetchYouTubeTranscript(video.video_id);
+      // Fetch real transcript - NO MOCK FALLBACK
+      const transcript = await fetchYouTubeTranscript(video.video_id);
       if (!transcript) {
-        console.log("Using mock transcript for video:", video.video_id);
-        transcript = getMockTranscript(video.video_id, video.title);
+        console.error("All transcript fetch methods failed for video:", video.video_id);
+        return NextResponse.json({
+          error: "Could not fetch transcript for this video",
+          details: "The video may not have captions enabled, or YouTube is blocking transcript access. Try again in a few minutes.",
+          videoId: video.video_id,
+        }, { status: 422 });
       }
 
       // Generate AI analysis using Claude Opus 4.5
@@ -1068,12 +1082,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Try to fetch real transcript, fall back to mock if unavailable
+    // Fetch real transcript - NO MOCK FALLBACK
     console.log("Fetching transcript for video_id:", video.video_id);
-    let transcript = await fetchYouTubeTranscript(video.video_id);
+    const transcript = await fetchYouTubeTranscript(video.video_id);
     if (!transcript) {
-      console.log("Real transcript failed, using mock transcript");
-      transcript = getMockTranscript(video.video_id, video.title);
+      console.error("All transcript fetch methods failed for video:", video.video_id);
+      return NextResponse.json({
+        error: "Could not fetch transcript for this video",
+        details: "The video may not have captions enabled, or YouTube is blocking transcript access. Try again in a few minutes.",
+        videoId: video.video_id,
+      }, { status: 422 });
     }
     console.log("Transcript obtained, wordCount:", transcript.wordCount);
 
