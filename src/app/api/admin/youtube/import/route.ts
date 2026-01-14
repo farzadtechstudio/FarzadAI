@@ -123,6 +123,7 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
 
         // Use text: false to get timestamped chunks for segmentation
         const transcript = await supadata.youtube.transcript({ url: youtubeUrl, text: false });
+        console.log("Supadata SDK response:", JSON.stringify(transcript).substring(0, 1000));
         console.log("Supadata SDK response type:", typeof transcript.content, "isArray:", Array.isArray(transcript.content));
 
         if (transcript && transcript.content) {
@@ -132,6 +133,10 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
           if (Array.isArray(transcript.content)) {
             // We have timestamped chunks - convert to segments
             console.log(`Got ${transcript.content.length} chunks from Supadata SDK`);
+            // Log first chunk to see structure
+            if (transcript.content.length > 0) {
+              console.log("First chunk:", JSON.stringify(transcript.content[0]));
+            }
             segments = transcript.content.map((chunk: { text: string; offset?: number; duration?: number }) => ({
               text: chunk.text,
               start: (chunk.offset || 0) / 1000,
