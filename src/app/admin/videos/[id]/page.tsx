@@ -301,6 +301,7 @@ export default function VideoDetailPage() {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [isReimporting, setIsReimporting] = useState(false);
   const [showSummaryOptions, setShowSummaryOptions] = useState(false);
+  const [showQuotesOptions, setShowQuotesOptions] = useState(false);
   const [copiedNote, setCopiedNote] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -535,6 +536,10 @@ export default function VideoDetailPage() {
       "Create Website Description": "description",
       "Social Media Captions": "captions",
       "Key Quotes": "quotes",
+      "Quotes: Social Media": "quotes",
+      "Quotes: Thumbnails/Titles": "quotes",
+      "Quotes: Show Notes": "quotes",
+      "Quotes: Article Pull": "quotes",
       "Highlights": "highlights",
     };
 
@@ -562,7 +567,31 @@ Keep the summary to 250 words. Maintain the tone and perspective of the original
       "Generate Newsletter": "Write an engaging newsletter based on this video content. Include a catchy headline, introduction, key insights, and a call to action. Make it suitable for email distribution.",
       "Create Website Description": "Write a compelling website description for this video content. It should be SEO-friendly, engaging, and summarize what viewers will learn. Keep it between 150-300 words.",
       "Social Media Captions": "Create 3-5 social media captions for different platforms (Twitter/X, LinkedIn, Instagram) based on this video. Include relevant hashtags and make them engaging and shareable.",
-      "Key Quotes": "Extract the most impactful and quotable statements from this transcript. List 5-10 key quotes that capture the essence of the video content. Include brief context for each quote.",
+
+      // Default comprehensive quotes
+      "Key Quotes": `Extract the most impactful quotes from this transcript. Select 5-10 quotes that:
+
+**Capture the core argument** - Statements that summarize the main thesis
+**Are memorable/shareable** - Punchy lines that stand on their own
+**Contain specific insights** - Unique perspectives, predictions, or claims
+**Have emotional weight** - Moments of conviction, humor, or emphasis
+
+For each quote:
+- Pull the exact wording from the transcript
+- Keep quotes concise (1-3 sentences max)
+- Note the context briefly if needed for clarity
+
+Do not paraphrase. Do not combine separate statements into one quote.`,
+
+      // Quotes variations
+      "Quotes: Social Media": "Extract 5-8 quotes under 280 characters that would work as standalone social media posts. Each quote should be punchy, shareable, and capture a key insight. Pull exact wording from the transcript.",
+
+      "Quotes: Thumbnails/Titles": "Pull 3-5 provocative or curiosity-inducing statements from this transcript that could work as video titles or thumbnails. Focus on statements that create intrigue, make bold claims, or promise value. Keep them under 60 characters when possible.",
+
+      "Quotes: Show Notes": "Extract 7-10 quotable moments with brief context for each. Format for podcast/video show notes with the quote followed by a one-sentence context note. Pull exact wording from the transcript.",
+
+      "Quotes: Article Pull": "Find 3-5 quotes that capture the speaker's voice and could be highlighted in a written piece. Select quotes that would work well as pull quotes or blockquotes in an article. Include brief context for each.",
+
       "Highlights": "Create a highlights summary of the most important moments and insights from this video. Format as a bulleted list of key highlights that someone could quickly scan to understand the main value.",
     };
 
@@ -1256,14 +1285,78 @@ Keep the summary to 250 words. Maintain the tone and perspective of the original
                   <ShareIcon />
                   {isGenerating === "Social Media Captions" ? "Generating..." : "Social Media Captions"}
                 </button>
-                <button
-                  onClick={() => handleContentAction("Key Quotes")}
-                  disabled={isGenerating === "Key Quotes"}
-                  className="flex items-center gap-2 px-4 py-3 bg-[var(--background)] rounded-xl text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors text-sm disabled:opacity-50"
-                >
-                  <QuoteIcon />
-                  {isGenerating === "Key Quotes" ? "Generating..." : "Key Quotes"}
-                </button>
+                {/* Key Quotes with dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowQuotesOptions(!showQuotesOptions)}
+                    disabled={isGenerating?.startsWith("Quotes") || isGenerating === "Key Quotes"}
+                    className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-[var(--background)] rounded-xl text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors text-sm disabled:opacity-50"
+                  >
+                    <span className="flex items-center gap-2">
+                      <QuoteIcon />
+                      {isGenerating?.startsWith("Quotes") || isGenerating === "Key Quotes" ? "Generating..." : "Key Quotes"}
+                    </span>
+                    <svg className={`w-4 h-4 transition-transform ${showQuotesOptions ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* Quotes Options Dropdown */}
+                  {showQuotesOptions && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg z-50 overflow-hidden">
+                      <button
+                        onClick={() => {
+                          setShowQuotesOptions(false);
+                          handleContentAction("Key Quotes");
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface-hover)] transition-colors border-b border-[var(--border)]"
+                      >
+                        <div className="font-medium text-[var(--text-primary)]">Impactful Quotes</div>
+                        <div className="text-xs text-[var(--text-muted)]">5-10 memorable quotes with context</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowQuotesOptions(false);
+                          handleContentAction("Quotes: Social Media");
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface-hover)] transition-colors border-b border-[var(--border)]"
+                      >
+                        <div className="font-medium text-[var(--text-primary)]">Social Media Clips</div>
+                        <div className="text-xs text-[var(--text-muted)]">Quotes under 280 chars for posts</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowQuotesOptions(false);
+                          handleContentAction("Quotes: Thumbnails/Titles");
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface-hover)] transition-colors border-b border-[var(--border)]"
+                      >
+                        <div className="font-medium text-[var(--text-primary)]">Thumbnails & Titles</div>
+                        <div className="text-xs text-[var(--text-muted)]">Provocative statements for video titles</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowQuotesOptions(false);
+                          handleContentAction("Quotes: Show Notes");
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface-hover)] transition-colors border-b border-[var(--border)]"
+                      >
+                        <div className="font-medium text-[var(--text-primary)]">Show Notes Quotes</div>
+                        <div className="text-xs text-[var(--text-muted)]">7-10 quotes with brief context</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowQuotesOptions(false);
+                          handleContentAction("Quotes: Article Pull");
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm hover:bg-[var(--surface-hover)] transition-colors"
+                      >
+                        <div className="font-medium text-[var(--text-primary)]">Article Pull Quotes</div>
+                        <div className="text-xs text-[var(--text-muted)]">Quotes for written pieces & blockquotes</div>
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => handleContentAction("Highlights")}
                   disabled={isGenerating === "Highlights"}
