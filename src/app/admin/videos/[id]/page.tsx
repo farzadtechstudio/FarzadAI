@@ -414,11 +414,11 @@ export default function VideoDetailPage() {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to get response");
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error + (data.details ? `: ${data.details}` : ""));
+      }
 
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -435,7 +435,7 @@ export default function VideoDetailPage() {
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Sorry, I encountered an error. Please try again.",
+        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : "Unknown error"}`,
       };
       setChatMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -1277,17 +1277,20 @@ export default function VideoDetailPage() {
                               headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ message: suggestion, history: [] }),
                             })
-                              .then((res) => res.json())
-                              .then((data) => {
+                              .then(async (res) => {
+                                const data = await res.json();
+                                if (!res.ok) {
+                                  throw new Error(data.error + (data.details ? `: ${data.details}` : ""));
+                                }
                                 setChatMessages((prev) => [
                                   ...prev,
                                   { id: (Date.now() + 1).toString(), role: "assistant", content: data.message },
                                 ]);
                               })
-                              .catch(() => {
+                              .catch((err) => {
                                 setChatMessages((prev) => [
                                   ...prev,
-                                  { id: (Date.now() + 1).toString(), role: "assistant", content: "Sorry, I encountered an error. Please try again." },
+                                  { id: (Date.now() + 1).toString(), role: "assistant", content: `Sorry, I encountered an error: ${err.message}` },
                                 ]);
                               })
                               .finally(() => {
@@ -1370,17 +1373,20 @@ export default function VideoDetailPage() {
                           history: chatMessages.map((m) => ({ role: m.role, content: m.content }))
                         }),
                       })
-                        .then((res) => res.json())
-                        .then((data) => {
+                        .then(async (res) => {
+                          const data = await res.json();
+                          if (!res.ok) {
+                            throw new Error(data.error + (data.details ? `: ${data.details}` : ""));
+                          }
                           setChatMessages((prev) => [
                             ...prev,
                             { id: (Date.now() + 1).toString(), role: "assistant", content: data.message },
                           ]);
                         })
-                        .catch(() => {
+                        .catch((err) => {
                           setChatMessages((prev) => [
                             ...prev,
-                            { id: (Date.now() + 1).toString(), role: "assistant", content: "Sorry, I encountered an error. Please try again." },
+                            { id: (Date.now() + 1).toString(), role: "assistant", content: `Sorry, I encountered an error: ${err.message}` },
                           ]);
                         })
                         .finally(() => {
