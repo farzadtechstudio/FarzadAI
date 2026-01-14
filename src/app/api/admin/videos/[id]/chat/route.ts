@@ -220,17 +220,22 @@ export async function POST(
       }
     }
 
-    // Build conversation history for Claude
-    const conversationMessages = history.map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
+    // Build conversation history for Claude - filter out any empty messages
+    const conversationMessages = history
+      .filter((msg) => msg.content && msg.content.trim())
+      .map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
 
     // Add current user message
     conversationMessages.push({
       role: "user" as const,
       content: message,
     });
+
+    // Debug log
+    console.log("Sending to Claude - messages count:", conversationMessages.length);
 
     // Call Claude Opus 4.5
     const response = await fetch("https://api.anthropic.com/v1/messages", {
