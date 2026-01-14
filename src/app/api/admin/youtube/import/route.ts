@@ -121,49 +121,102 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
         const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
         console.log("Fetching transcript for URL:", youtubeUrl);
 
-        const transcript = await supadata.youtube.transcript({ url: youtubeUrl, text: true });
-        console.log("Supadata SDK response:", JSON.stringify(transcript).substring(0, 500));
+        // Use text: false to get timestamped chunks for segmentation
+        const transcript = await supadata.youtube.transcript({ url: youtubeUrl, text: false });
+        console.log("Supadata SDK response type:", typeof transcript.content, "isArray:", Array.isArray(transcript.content));
 
         if (transcript && transcript.content) {
-          // content can be string (when text: true) or TranscriptChunk[] (when text: false)
+          let segments: TranscriptSegment[];
           let fullText: string;
-          if (typeof transcript.content === "string") {
+
+          if (Array.isArray(transcript.content)) {
+            // We have timestamped chunks - convert to segments
+            console.log(`Got ${transcript.content.length} chunks from Supadata SDK`);
+            segments = transcript.content.map((chunk: { text: string; offset?: number; duration?: number }) => ({
+              text: chunk.text,
+              start: (chunk.offset || 0) / 1000,
+              duration: (chunk.duration || 0) / 1000,
+            }));
+
+            // Merge into logical paragraphs
+            const paragraphs = mergeSegmentsIntoParagraphs(segments);
+            console.log(`Merged ${segments.length} chunks into ${paragraphs.length} paragraphs`);
+
+            fullText = paragraphs.map((s) => s.text).join(" ");
+
+            lastFetchAttempts.push({
+              method: "Supadata SDK",
+              success: true,
+              details: `Got ${segments.length} chunks -> ${paragraphs.length} paragraphs`
+            });
+
+            return {
+              segments: paragraphs,
+              fullText,
+              language: transcript.lang || "en",
+              wordCount: fullText.split(/\s+/).filter(Boolean).length,
+              characterCount: fullText.length,
+            };
+          } else if (typeof transcript.content === "string") {
+            // Fallback: got string content, split into paragraphs by sentence
             fullText = transcript.content;
-          } else {
-            // It's an array of chunks, concatenate the text
-            fullText = transcript.content.map((chunk: { text: string }) => chunk.text).join(" ");
+            console.log("Got string content from Supadata SDK, splitting into paragraphs");
+
+            // Split into paragraphs based on sentences (roughly 3-5 sentences per paragraph)
+            const sentences = fullText.match(/[^.!?]+[.!?]+/g) || [fullText];
+            const paragraphs: TranscriptSegment[] = [];
+            let currentParagraph = "";
+            let sentenceCount = 0;
+
+            for (const sentence of sentences) {
+              currentParagraph += sentence;
+              sentenceCount++;
+
+              // Create a new paragraph every 3-5 sentences or if it's getting long
+              if (sentenceCount >= 4 || currentParagraph.length > 500) {
+                paragraphs.push({
+                  text: currentParagraph.trim(),
+                  start: 0,
+                  duration: 0,
+                });
+                currentParagraph = "";
+                sentenceCount = 0;
+              }
+            }
+
+            // Add remaining text as final paragraph
+            if (currentParagraph.trim()) {
+              paragraphs.push({
+                text: currentParagraph.trim(),
+                start: 0,
+                duration: 0,
+              });
+            }
+
+            lastFetchAttempts.push({
+              method: "Supadata SDK",
+              success: true,
+              details: `Got ${fullText.length} chars -> ${paragraphs.length} paragraphs`
+            });
+
+            return {
+              segments: paragraphs,
+              fullText,
+              language: transcript.lang || "en",
+              wordCount: fullText.split(/\s+/).filter(Boolean).length,
+              characterCount: fullText.length,
+            };
           }
-
-          console.log("Got transcript from Supadata SDK, length:", fullText.length);
-          const segments: TranscriptSegment[] = [{
-            text: fullText,
-            start: 0,
-            duration: 0,
-          }];
-
-          lastFetchAttempts.push({
-            method: "Supadata SDK",
-            success: true,
-            details: `Got ${fullText.length} chars`
-          });
-
-          return {
-            segments,
-            fullText,
-            language: transcript.lang || "en",
-            wordCount: fullText.split(/\s+/).filter(Boolean).length,
-            characterCount: fullText.length,
-          };
-        } else {
-          const respStr = JSON.stringify(transcript).substring(0, 200);
-          console.log("Supadata SDK returned no content:", respStr);
-          lastFetchAttempts.push({
-            method: "Supadata SDK",
-            success: false,
-            error: "No content in response",
-            details: respStr
-          });
         }
+
+        const respStr = JSON.stringify(transcript).substring(0, 200);
+        console.log("Supadata SDK returned no content:", respStr);
+        lastFetchAttempts.push({
+          method: "Supadata SDK",
+          success: false,
+          error: "No content in response",
+          details: respStr
+        });
       } catch (supadataError) {
         const errMsg = supadataError instanceof Error ? supadataError.message : String(supadataError);
         console.log("Supadata SDK error:", supadataError);
