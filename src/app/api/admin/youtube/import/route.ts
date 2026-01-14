@@ -143,7 +143,50 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
   try {
     console.log("Fetching transcript for video:", videoId);
 
-    // Method 1: Use youtubei.js (most reliable for serverless - uses YouTube's internal API)
+    // Method 1: Use Supadata API (most reliable for serverless - free tier available)
+    // Sign up at https://supadata.ai for API key
+    const supadataKey = process.env.SUPADATA_API_KEY;
+    if (supadataKey) {
+      try {
+        console.log("Trying Supadata API...");
+        const response = await fetch(
+          `https://api.supadata.ai/v1/youtube/transcript?video_id=${videoId}&text=true`,
+          {
+            headers: {
+              "x-api-key": supadataKey,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.content) {
+            console.log("Got transcript from Supadata API");
+            const fullText = data.content;
+            // Create a single segment with the full text for simplicity
+            const segments: TranscriptSegment[] = [{
+              text: fullText,
+              start: 0,
+              duration: 0,
+            }];
+
+            return {
+              segments,
+              fullText,
+              language: data.lang || "en",
+              wordCount: fullText.split(/\s+/).filter(Boolean).length,
+              characterCount: fullText.length,
+            };
+          }
+        } else {
+          console.log("Supadata API failed:", response.status);
+        }
+      } catch (supadataError) {
+        console.log("Supadata API error:", supadataError);
+      }
+    }
+
+    // Method 2: Use youtubei.js (uses YouTube's internal API)
     try {
       console.log("Trying youtubei.js library...");
       const youtube = await Innertube.create({
@@ -182,7 +225,7 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       console.log("youtubei.js library failed:", innertubeError);
     }
 
-    // Method 2: Use youtube-transcript library
+    // Method 3: Use youtube-transcript library
     try {
       console.log("Trying youtube-transcript library...");
       const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
@@ -214,14 +257,14 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       console.log("youtube-transcript library failed:", libError);
     }
 
-    // Method 3: Try web scraping as fallback
+    // Method 4: Try web scraping as fallback
     console.log("Falling back to web scraping...");
     const scrapedTranscript = await fetchTranscriptViaScraping(videoId);
     if (scrapedTranscript) {
       return scrapedTranscript;
     }
 
-    // Method 4: Try yt-dlp (only works locally, not on Vercel)
+    // Method 5: Try yt-dlp (only works locally, not on Vercel)
     console.log("Trying yt-dlp...");
     const ytdlpTranscript = await fetchTranscriptViaYtdlp(videoId);
     if (ytdlpTranscript) {
