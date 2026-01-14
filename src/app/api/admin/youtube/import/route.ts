@@ -2,17 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { YoutubeTranscript } from "youtube-transcript";
-import { Innertube } from "youtubei.js";
 import { Supadata } from "@supadata/js";
-import { USE_SUPABASE } from "@/lib/config";
-import { loadSetupConfig, clearConfigCache } from "@/lib/setup-loader";
-import { promises as fs } from "fs";
-import path from "path";
-import { exec } from "child_process";
-import { promisify } from "util";
-import os from "os";
 
-const execAsync = promisify(exec);
 const JWT_SECRET = process.env.JWT_SECRET || "local-dev-secret-change-in-production";
 
 interface JWTPayload {
@@ -91,104 +82,11 @@ interface AIAnalysis {
   keyInsights?: { text: string; type: "Analysis" | "Observation" | "Tip" }[];
 }
 
-interface YouTubeVideo {
-  id: string;
-  video_id: string;
-  title: string;
-  thumbnail: string;
-  published_at: string;
-  playlist?: string;
-  playlist_id?: string;
-  duration?: string;
-  view_count?: number;
-  is_imported: boolean;
-  knowledge_item_id?: string;
-  transcript?: TranscriptData;
-  ai_analysis?: AIAnalysis;
-}
-
-interface YouTubeConfig {
-  channel_id?: string;
-  channel_name?: string;
-  api_key?: string;
-  last_synced?: string;
-  videos?: YouTubeVideo[];
-}
-
-interface KnowledgeItem {
-  id: string;
-  source: "youtube" | "manual" | "document";
-  title: string;
-  content: string;
-  source_url?: string;
-  category?: string;
-  playlist?: string;
-  date?: string;
-  length?: number;
-  modified_by?: string;
-  modified_by_initials?: string;
-  is_ai_processed?: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
 interface Json3Event {
   tStartMs?: number;
   dDurationMs?: number;
   segs?: Array<{ utf8: string; tOffsetMs?: number }>;
   aAppend?: number;
-}
-
-// Fetch transcript using Python youtube-transcript-api (most reliable method)
-async function fetchTranscriptViaPython(videoId: string): Promise<TranscriptData | null> {
-  try {
-    console.log("Trying Python youtube-transcript-api...");
-    const scriptPath = path.join(process.cwd(), "scripts", "fetch-transcript.py");
-
-    // Try multiple Python paths
-    const pythonPaths = ["python3", "python", "/usr/bin/python3", "/usr/local/bin/python3"];
-    let result = null;
-
-    for (const pythonCmd of pythonPaths) {
-      try {
-        const { stdout } = await execAsync(`${pythonCmd} "${scriptPath}" "${videoId}"`, {
-          timeout: 30000,
-          maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large transcripts
-        });
-        result = JSON.parse(stdout);
-        break;
-      } catch {
-        continue;
-      }
-    }
-
-    if (!result) {
-      console.log("Python not found or script failed");
-      return null;
-    }
-
-    if (!result.success) {
-      console.log("Python transcript fetch failed:", result.error);
-      return null;
-    }
-
-    console.log(`Got ${result.segments.length} segments from Python youtube-transcript-api`);
-
-    // Merge small segments into paragraphs
-    const paragraphs = mergeSegmentsIntoParagraphs(result.segments);
-    console.log(`Merged into ${paragraphs.length} paragraphs`);
-
-    return {
-      segments: paragraphs,
-      fullText: result.fullText,
-      language: result.language || "en",
-      wordCount: result.wordCount,
-      characterCount: result.characterCount,
-    };
-  } catch (error) {
-    console.log("Python transcript fetch error:", error);
-    return null;
-  }
 }
 
 // Store debug info about transcript fetch attempts
@@ -213,16 +111,7 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
   try {
     console.log("Fetching transcript for video:", videoId);
 
-    // Method 1: Use Python youtube-transcript-api (most reliable) - SKIP on Vercel
-    // Python is not available on Vercel serverless functions
-    lastFetchAttempts.push({
-      method: "Python youtube-transcript-api",
-      success: false,
-      error: "Skipped",
-      details: "Python not available on Vercel serverless"
-    });
-
-    // Method 2: Use Supadata SDK (reliable for serverless)
+    // Method 1: Use Supadata SDK (primary method for serverless)
     const supadataKey = process.env.SUPADATA_API_KEY;
     console.log("SUPADATA_API_KEY present:", !!supadataKey, "length:", supadataKey?.length || 0);
     if (supadataKey) {
@@ -295,87 +184,7 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       });
     }
 
-    // Method 3: Use youtubei.js (uses YouTube's internal API)
-    // Skip on Vercel - youtubei.js tries to write cache files which fails on read-only filesystem
-    const isVercel = process.env.VERCEL === "1" || process.env.VERCEL === "true";
-    if (isVercel) {
-      console.log("Skipping youtubei.js on Vercel (read-only filesystem)");
-      lastFetchAttempts.push({
-        method: "youtubei.js",
-        success: false,
-        error: "Skipped",
-        details: "Not available on Vercel serverless (filesystem restrictions)"
-      });
-    } else {
-      try {
-        console.log("Trying youtubei.js library...");
-        const youtube = await Innertube.create({
-          retrieve_player: false,
-          cache: undefined, // Disable caching
-          generate_session_locally: true, // Don't fetch session from YouTube
-        });
-
-        const info = await youtube.getInfo(videoId);
-        const transcriptInfo = await info.getTranscript();
-
-        if (transcriptInfo?.transcript?.content?.body?.initial_segments) {
-          const rawSegments = transcriptInfo.transcript.content.body.initial_segments;
-          console.log(`Got ${rawSegments.length} segments from youtubei.js`);
-
-          const segments: TranscriptSegment[] = rawSegments.map((seg: { snippet?: { text?: string }; start_ms?: string; end_ms?: string }) => ({
-            text: seg.snippet?.text || "",
-            start: parseInt(seg.start_ms || "0") / 1000,
-            duration: (parseInt(seg.end_ms || "0") - parseInt(seg.start_ms || "0")) / 1000,
-          })).filter((s: TranscriptSegment) => s.text.trim());
-
-          if (segments.length > 0) {
-            const paragraphs = mergeSegmentsIntoParagraphs(segments);
-            console.log(`Merged into ${paragraphs.length} paragraphs`);
-
-            const fullText = paragraphs.map((s) => s.text).join(" ");
-
-            lastFetchAttempts.push({
-              method: "youtubei.js",
-              success: true,
-              details: `Got ${segments.length} segments`
-            });
-
-            return {
-              segments: paragraphs,
-              fullText,
-              language: "en",
-              wordCount: fullText.split(/\s+/).filter(Boolean).length,
-              characterCount: fullText.length,
-            };
-          } else {
-            lastFetchAttempts.push({
-              method: "youtubei.js",
-              success: false,
-              error: "No segments",
-              details: "Transcript found but no valid segments"
-            });
-          }
-        } else {
-          lastFetchAttempts.push({
-            method: "youtubei.js",
-            success: false,
-            error: "No transcript data",
-            details: "transcriptInfo structure missing"
-          });
-        }
-      } catch (innertubeError) {
-        const errMsg = innertubeError instanceof Error ? innertubeError.message : String(innertubeError);
-        console.log("youtubei.js library failed:", innertubeError);
-        lastFetchAttempts.push({
-          method: "youtubei.js",
-          success: false,
-          error: "Exception",
-          details: errMsg.substring(0, 200)
-        });
-      }
-    }
-
-    // Method 4: Use youtube-transcript library
+    // Method 2: Use youtube-transcript library
     try {
       console.log("Trying youtube-transcript library...");
       const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
@@ -426,7 +235,7 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       });
     }
 
-    // Method 5: Try web scraping as fallback
+    // Method 3: Try web scraping as fallback
     console.log("Falling back to web scraping...");
     const scrapedTranscript = await fetchTranscriptViaScraping(videoId);
     if (scrapedTranscript) {
@@ -445,14 +254,6 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       });
     }
 
-    // Method 6: Try yt-dlp (only works locally) - SKIP on Vercel
-    lastFetchAttempts.push({
-      method: "yt-dlp",
-      success: false,
-      error: "Skipped",
-      details: "yt-dlp not available on Vercel serverless"
-    });
-
     console.log("All transcript fetch methods failed");
     return null;
   } catch (error) {
@@ -464,118 +265,6 @@ async function fetchYouTubeTranscript(videoId: string): Promise<TranscriptData |
       error: "Top-level exception",
       details: errMsg.substring(0, 200)
     });
-    return null;
-  }
-}
-
-// Fetch transcript using yt-dlp (local development only)
-async function fetchTranscriptViaYtdlp(videoId: string): Promise<TranscriptData | null> {
-  try {
-    const tmpDir = os.tmpdir();
-    const outputPath = path.join(tmpDir, `yt_transcript_${videoId}`);
-    const subtitlePath = `${outputPath}.en.json3`;
-
-    // Try to find yt-dlp in common locations
-    const ytdlpPaths = [
-      "yt-dlp",
-      "/usr/local/bin/yt-dlp",
-      "/opt/homebrew/bin/yt-dlp",
-      `${os.homedir()}/Library/Python/3.9/bin/yt-dlp`,
-      `${os.homedir()}/.local/bin/yt-dlp`,
-    ];
-
-    let ytdlpCmd = "";
-    for (const p of ytdlpPaths) {
-      try {
-        await execAsync(`${p} --version`);
-        ytdlpCmd = p;
-        break;
-      } catch {
-        continue;
-      }
-    }
-
-    if (!ytdlpCmd) {
-      console.log("yt-dlp not found");
-      return null;
-    }
-
-    // Download auto-generated subtitles
-    const cmd = `${ytdlpCmd} --write-auto-sub --sub-lang en --skip-download --sub-format json3 -o "${outputPath}" "https://www.youtube.com/watch?v=${videoId}" 2>&1`;
-
-    try {
-      await execAsync(cmd, { timeout: 60000 });
-    } catch (execError) {
-      console.log("yt-dlp command failed:", execError);
-      return null;
-    }
-
-    // Read and parse the subtitle file
-    let subtitleContent: string;
-    try {
-      subtitleContent = await fs.readFile(subtitlePath, "utf8");
-    } catch {
-      const altPath = path.join(tmpDir, `yt_transcript_${videoId}.en.json3`);
-      try {
-        subtitleContent = await fs.readFile(altPath, "utf8");
-      } catch {
-        return null;
-      }
-    }
-
-    const json3Data = JSON.parse(subtitleContent);
-    const events: Json3Event[] = json3Data.events || [];
-
-    const segments: TranscriptSegment[] = [];
-    let currentText = "";
-    let currentStart = 0;
-
-    for (const event of events) {
-      if (event.segs && !event.aAppend) {
-        if (currentText.trim()) {
-          segments.push({
-            text: currentText.trim(),
-            start: currentStart / 1000,
-            duration: (event.tStartMs || 0 - currentStart) / 1000,
-          });
-        }
-        currentStart = event.tStartMs || 0;
-        currentText = event.segs.map((s) => s.utf8).join("");
-      } else if (event.segs && event.aAppend) {
-        currentText += event.segs.map((s) => s.utf8).join("");
-      }
-    }
-
-    if (currentText.trim()) {
-      segments.push({
-        text: currentText.trim(),
-        start: currentStart / 1000,
-        duration: 5,
-      });
-    }
-
-    try {
-      await fs.unlink(subtitlePath);
-    } catch {
-      // Ignore
-    }
-
-    if (segments.length === 0) {
-      return null;
-    }
-
-    const paragraphs = mergeSegmentsIntoParagraphs(segments);
-    const fullText = paragraphs.map((s) => s.text).join(" ");
-
-    return {
-      segments: paragraphs,
-      fullText,
-      language: "en",
-      wordCount: fullText.split(/\s+/).filter(Boolean).length,
-      characterCount: fullText.length,
-    };
-  } catch (error) {
-    console.error("yt-dlp fetch failed:", error);
     return null;
   }
 }
@@ -711,7 +400,7 @@ async function fetchTranscriptViaScraping(videoId: string): Promise<TranscriptDa
     }
 
     // Fetch captions in json3 format
-    let captionUrl = tracks[0].baseUrl + "&fmt=json3";
+    const captionUrl = tracks[0].baseUrl + "&fmt=json3";
     const captionRes = await fetch(captionUrl, {
       headers: {
         "User-Agent":
@@ -1139,44 +828,13 @@ Status meanings:
   return factCheckedClaims;
 }
 
-async function getLocalConfig(): Promise<{ youtube: YouTubeConfig; knowledgeItems: KnowledgeItem[] }> {
-  const setup = await loadSetupConfig();
-  return {
-    youtube: setup?.youtube || { videos: [] },
-    knowledgeItems: setup?.knowledgeItems || [],
-  };
-}
-
-async function saveLocalConfig(youtube: YouTubeConfig, knowledgeItems: KnowledgeItem[]): Promise<void> {
-  // Note: This function only works in local development, not on Vercel (read-only filesystem)
-  try {
-    const configPath = path.join(process.cwd(), "src", "lib", "setup-config.json");
-    const existingConfig = (await loadSetupConfig()) || {};
-
-    const updatedConfig = {
-      ...existingConfig,
-      youtube,
-      knowledgeItems,
-    };
-
-    await fs.writeFile(configPath, JSON.stringify(updatedConfig, null, 2));
-    clearConfigCache();
-  } catch (error) {
-    // On Vercel, filesystem is read-only - this is expected to fail
-    console.error("Failed to save local config (expected on Vercel):", error);
-    throw new Error("Cannot save to filesystem - use Supabase mode on Vercel");
-  }
-}
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    let { tenantId, videoId, modified_by, modified_by_initials, forceReimport } = body;
+    let { tenantId, videoId, forceReimport } = body;
 
     console.log("=== IMPORT DEBUG START ===");
     console.log("Body received:", JSON.stringify({ tenantId, videoId, forceReimport }));
-    console.log("JWT_SECRET configured:", !!JWT_SECRET, "length:", JWT_SECRET?.length || 0);
-    console.log("USE_SUPABASE:", USE_SUPABASE);
 
     // If tenantId not provided, try to get from auth_token JWT cookie
     if (!tenantId) {
@@ -1192,140 +850,26 @@ export async function POST(request: NextRequest) {
           console.log("JWT decoded successfully - tenantId:", tenantId, "userId:", decoded.userId, "email:", decoded.email);
         } catch (err) {
           console.error("JWT verification failed:", err);
-          // Try decoding without verification to see what's in the token
-          try {
-            const parts = authToken.value.split(".");
-            if (parts.length === 3) {
-              const payload = JSON.parse(Buffer.from(parts[1], "base64").toString());
-              console.log("JWT payload (unverified):", JSON.stringify(payload));
-            }
-          } catch {
-            console.log("Could not decode JWT payload");
-          }
         }
       } else {
         console.log("No auth_token cookie found");
       }
     }
 
-    // On Vercel, always use Supabase mode (filesystem is read-only)
-    const isVercelEnv = process.env.VERCEL === "1" || process.env.VERCEL === "true";
-    const shouldUseSupabase = USE_SUPABASE || isVercelEnv;
-
     console.log("Final values - tenantId:", tenantId, "videoId:", videoId, "forceReimport:", forceReimport);
-    console.log("USE_SUPABASE:", USE_SUPABASE, "isVercel:", isVercelEnv, "shouldUseSupabase:", shouldUseSupabase);
     console.log("=== IMPORT DEBUG END ===");
 
     if (!tenantId || !videoId) {
       return NextResponse.json(
         {
           error: "Tenant ID and video ID required",
-          debug: {
-            tenantId,
-            videoId,
-            jwtSecretConfigured: !!JWT_SECRET,
-            useSupabase: shouldUseSupabase,
-            isVercel: isVercelEnv
-          }
+          debug: { tenantId, videoId }
         },
         { status: 400 }
       );
     }
 
-    // Local mode - only for local development, never on Vercel
-    if (!shouldUseSupabase && tenantId === "local") {
-      const { youtube, knowledgeItems } = await getLocalConfig();
-
-      // Find the video
-      const videoIndex = (youtube.videos || []).findIndex(
-        (v) => v.id === videoId || v.video_id === videoId
-      );
-
-      if (videoIndex === -1) {
-        return NextResponse.json({ error: "Video not found" }, { status: 404 });
-      }
-
-      const video = youtube.videos![videoIndex];
-
-      // Check if already imported (unless force re-import)
-      if (video.is_imported && !forceReimport) {
-        return NextResponse.json(
-          { error: "Video already imported" },
-          { status: 400 }
-        );
-      }
-
-      // Fetch real transcript - NO MOCK FALLBACK
-      const transcript = await fetchYouTubeTranscript(video.video_id);
-      if (!transcript) {
-        console.error("All transcript fetch methods failed for video:", video.video_id);
-        const attempts = getLastFetchAttempts();
-        return NextResponse.json({
-          error: "Could not fetch transcript for this video",
-          details: "All transcript fetch methods failed. See 'attempts' for details.",
-          videoId: video.video_id,
-          attempts: attempts,
-          envCheck: {
-            SUPADATA_API_KEY: !!process.env.SUPADATA_API_KEY,
-            SUPADATA_KEY_LENGTH: process.env.SUPADATA_API_KEY?.length || 0,
-          }
-        }, { status: 422 });
-      }
-
-      // Generate AI analysis using Claude Opus 4.5
-      const existingVideos = (youtube.videos || []).map((v) => ({
-        id: v.id,
-        video_id: v.video_id,
-        title: v.title,
-        is_imported: v.is_imported,
-      }));
-      const aiAnalysis = await generateAIAnalysis(transcript, video.title, existingVideos);
-
-      // Fact-check claims using Grok
-      if (aiAnalysis.claims && aiAnalysis.claims.length > 0) {
-        aiAnalysis.claims = await factCheckClaimsWithGrok(aiAnalysis.claims);
-      }
-
-      // Create knowledge item
-      const knowledgeItem: KnowledgeItem = {
-        id: `kb-yt-${Date.now()}`,
-        source: "youtube",
-        title: video.title,
-        content: transcript.fullText,
-        source_url: `https://youtube.com/watch?v=${video.video_id}`,
-        category: "Video Transcript",
-        playlist: video.playlist,
-        date: video.published_at,
-        length: transcript.characterCount,
-        modified_by: modified_by || "Admin",
-        modified_by_initials: modified_by_initials || "AA",
-        is_ai_processed: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      // Update video as imported with transcript and AI analysis
-      youtube.videos![videoIndex] = {
-        ...video,
-        is_imported: true,
-        knowledge_item_id: knowledgeItem.id,
-        transcript,
-        ai_analysis: aiAnalysis,
-      };
-
-      // Add to knowledge base
-      knowledgeItems.unshift(knowledgeItem);
-
-      await saveLocalConfig(youtube, knowledgeItems);
-
-      return NextResponse.json({
-        success: true,
-        knowledge_item: knowledgeItem,
-        video_id: video.id,
-      });
-    }
-
-    // Supabase mode
+    // Supabase mode only
     const { createServerClient } = await import("@/lib/supabase");
     const supabase = createServerClient();
 
@@ -1348,11 +892,11 @@ export async function POST(request: NextRequest) {
     const { data: video, error: videoError } = await query.single();
 
     if (videoError || !video) {
-      console.error("Video not found error:", videoError, "videoId:", videoId, "tenantId:", tenantId, "searchedBy:", isUUID ? "id" : "video_id");
-      return NextResponse.json({ error: "Video not found", details: videoError?.message, searchedBy: isUUID ? "id" : "video_id" }, { status: 404 });
+      console.error("Video not found error:", videoError, "videoId:", videoId, "tenantId:", tenantId);
+      return NextResponse.json({ error: "Video not found", details: videoError?.message }, { status: 404 });
     }
 
-    console.log("Found video:", video.id, "video_id:", video.video_id, "title:", video.title, "is_imported:", video.is_imported, "forceReimport:", forceReimport);
+    console.log("Found video:", video.id, "video_id:", video.video_id, "title:", video.title, "is_imported:", video.is_imported);
 
     // Check if already imported (unless force re-import)
     if (video.is_imported && !forceReimport) {
@@ -1362,7 +906,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch real transcript - NO MOCK FALLBACK
+    // Fetch real transcript
     console.log("Fetching transcript for video_id:", video.video_id);
     const transcript = await fetchYouTubeTranscript(video.video_id);
     if (!transcript) {
@@ -1403,7 +947,7 @@ export async function POST(request: NextRequest) {
       aiAnalysis.claims = await factCheckClaimsWithGrok(aiAnalysis.claims);
     }
 
-    // Create knowledge item (only include columns that exist in schema)
+    // Create knowledge item
     const { data: knowledgeItem, error: kbError } = await supabase
       .from("knowledge_items")
       .insert({
@@ -1423,7 +967,6 @@ export async function POST(request: NextRequest) {
     console.log("Knowledge item created:", knowledgeItem.id);
 
     // Update video as imported with transcript and AI analysis
-    // Use video.id (the database UUID) not videoId (which might be the YouTube video_id)
     console.log("Updating video with transcript and AI analysis, video.id:", video.id);
     const { error: updateError, data: updateData } = await supabase
       .from("videos")
