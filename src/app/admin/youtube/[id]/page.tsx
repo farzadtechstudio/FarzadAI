@@ -302,6 +302,7 @@ export default function VideoDetailPage() {
   const [isReimporting, setIsReimporting] = useState(false);
   const [showSummaryOptions, setShowSummaryOptions] = useState(false);
   const [showQuotesOptions, setShowQuotesOptions] = useState(false);
+  const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [copiedNote, setCopiedNote] = useState(false);
 
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -533,6 +534,10 @@ export default function VideoDetailPage() {
       "Summary: Style Analysis": "summary",
       "Generate Newsletter": "newsletter",
       "Create Website Description": "description",
+      "Description: SEO Optimized": "description",
+      "Description: With Chapters": "description",
+      "Description: With Guest Info": "description",
+      "Description: Short Form": "description",
       "Social Media Captions": "captions",
       "Key Quotes": "quotes",
       "Quotes: Social Media": "quotes",
@@ -562,7 +567,69 @@ Keep the summary to 250 words. Maintain the tone and perspective of the original
       "Summary: Style Analysis": "Summarize this transcript while noting the speaker's rhetorical style, recurring phrases, and structural patterns. Include: 1) Content summary, 2) Speaking style observations, 3) Recurring themes or phrases, 4) Structural approach used.",
 
       "Generate Newsletter": "Write an engaging newsletter based on this video content. Include a catchy headline, introduction, key insights, and a call to action. Make it suitable for email distribution.",
-      "Create Website Description": "Write a compelling website description for this video content. It should be SEO-friendly, engaging, and summarize what viewers will learn. Keep it between 150-300 words.",
+
+      // Description variations
+      "Create Website Description": "Write a compelling YouTube video description. Include: 1) Hook in the first 2 lines (shown before 'Show more'), 2) Brief summary of what viewers will learn, 3) Key topics covered, 4) Call to action. Keep it between 150-300 words.",
+
+      "Description: SEO Optimized": `Write an SEO-optimized YouTube video description. Structure it as:
+
+**First 2 lines (critical - shown before "Show more"):**
+- Attention-grabbing hook with main benefit/topic
+- Include primary keyword naturally
+
+**Body (150-200 words):**
+- What viewers will learn (bullet points)
+- Key topics/timestamps placeholder
+- Relevant secondary keywords woven in naturally
+
+**Footer:**
+- Call to action (subscribe, like, comment)
+- Related video suggestions placeholder
+- Social links placeholder
+
+Use natural language, avoid keyword stuffing. Focus on searchable terms related to the video topic.`,
+
+      "Description: With Chapters": `Create a YouTube description with chapter timestamps. Format:
+
+**Opening hook (2 lines):**
+Brief, engaging summary of the video
+
+**Chapters:**
+0:00 - Introduction
+[Generate logical chapter breaks based on transcript topics]
+[Each chapter should be 3-8 words describing that section]
+
+**Description (100-150 words):**
+Summary of key points covered
+
+**Call to Action:**
+Subscribe reminder and engagement prompt
+
+Base chapter timestamps on the natural topic transitions in the transcript.`,
+
+      "Description: With Guest Info": `Create a YouTube description featuring guest information. Include:
+
+**Opening (2 lines):**
+Hook mentioning the guest and topic
+
+**About the Guest:**
+- Brief bio based on how they're introduced in the transcript
+- Their expertise/credentials mentioned
+- Placeholder for social links: [Guest Twitter] [Guest LinkedIn]
+
+**Episode Summary (100-150 words):**
+Key discussion points and insights
+
+**Topics Covered:**
+- Bullet points of main subjects discussed
+
+**Connect:**
+- Guest social placeholders
+- Show social placeholders
+- Subscribe CTA`,
+
+      "Description: Short Form": "Write a concise YouTube description under 100 words. Include: 1) One-line hook, 2) 3-4 bullet points of key topics, 3) Simple call to action. Perfect for shorts or quick videos.",
+
       "Social Media Captions": "Create 3-5 social media captions for different platforms (Twitter/X, LinkedIn, Instagram) based on this video. Include relevant hashtags and make them engaging and shareable.",
 
       // Default comprehensive quotes
@@ -1266,12 +1333,12 @@ Maintain the speaker's perspective and tone. Do not editorialize or add outside 
                   {isGenerating === "Generate Newsletter" ? "Generating..." : "Generate Newsletter"}
                 </button>
                 <button
-                  onClick={() => handleContentAction("Create Website Description")}
-                  disabled={isGenerating === "Create Website Description"}
+                  onClick={() => setShowDescriptionModal(true)}
+                  disabled={isGenerating?.startsWith("Description") || isGenerating === "Create Website Description"}
                   className="flex items-center gap-2 px-4 py-3 bg-[var(--background)] rounded-xl text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors text-sm disabled:opacity-50"
                 >
                   <PencilIcon />
-                  {isGenerating === "Create Website Description" ? "Generating..." : "Create Website Description"}
+                  {isGenerating?.startsWith("Description") || isGenerating === "Create Website Description" ? "Generating..." : "Create Description"}
                 </button>
                 <button
                   onClick={() => handleContentAction("Social Media Captions")}
@@ -1754,6 +1821,85 @@ Maintain the speaker's perspective and tone. Do not editorialize or add outside 
               <div className="prose prose-sm dark:prose-invert max-w-none prose-table:w-full prose-table:border-collapse prose-th:border prose-th:border-[var(--border)] prose-th:bg-[var(--surface)] prose-th:px-3 prose-th:py-2 prose-th:text-left prose-td:border prose-td:border-[var(--border)] prose-td:px-3 prose-td:py-2">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{selectedNote.content}</ReactMarkdown>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Description Options Modal */}
+      {showDescriptionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[var(--surface)] rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <PencilIcon />
+                <h3 className="text-lg font-semibold text-[var(--text-primary)]">Generate Description</h3>
+              </div>
+              <button
+                onClick={() => setShowDescriptionModal(false)}
+                className="p-2 rounded-lg hover:bg-[var(--background)] transition-colors text-[var(--text-secondary)]"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4 space-y-2">
+              <button
+                onClick={() => {
+                  setShowDescriptionModal(false);
+                  handleContentAction("Create Website Description");
+                }}
+                className="w-full px-4 py-4 text-left hover:bg-[var(--surface-hover)] rounded-xl transition-colors"
+              >
+                <div className="font-medium text-[var(--text-primary)]">Standard Description</div>
+                <div className="text-sm text-[var(--text-muted)]">Hook, summary, topics & call to action</div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowDescriptionModal(false);
+                  handleContentAction("Description: SEO Optimized");
+                }}
+                className="w-full px-4 py-4 text-left hover:bg-[var(--surface-hover)] rounded-xl transition-colors"
+              >
+                <div className="font-medium text-[var(--text-primary)]">SEO Optimized</div>
+                <div className="text-sm text-[var(--text-muted)]">Keyword-rich with searchable terms</div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowDescriptionModal(false);
+                  handleContentAction("Description: With Chapters");
+                }}
+                className="w-full px-4 py-4 text-left hover:bg-[var(--surface-hover)] rounded-xl transition-colors"
+              >
+                <div className="font-medium text-[var(--text-primary)]">With Chapters</div>
+                <div className="text-sm text-[var(--text-muted)]">Auto-generated timestamp chapters</div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowDescriptionModal(false);
+                  handleContentAction("Description: With Guest Info");
+                }}
+                className="w-full px-4 py-4 text-left hover:bg-[var(--surface-hover)] rounded-xl transition-colors"
+              >
+                <div className="font-medium text-[var(--text-primary)]">With Guest Info</div>
+                <div className="text-sm text-[var(--text-muted)]">Guest bio, social links & episode summary</div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowDescriptionModal(false);
+                  handleContentAction("Description: Short Form");
+                }}
+                className="w-full px-4 py-4 text-left hover:bg-[var(--surface-hover)] rounded-xl transition-colors"
+              >
+                <div className="font-medium text-[var(--text-primary)]">Short Form</div>
+                <div className="text-sm text-[var(--text-muted)]">Under 100 words for quick videos</div>
+              </button>
             </div>
           </div>
         </div>
