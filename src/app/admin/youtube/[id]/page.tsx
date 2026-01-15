@@ -305,6 +305,16 @@ export default function VideoDetailPage() {
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [copiedNote, setCopiedNote] = useState(false);
 
+  // Description form state
+  const [descIncludeChapters, setDescIncludeChapters] = useState(false);
+  const [descGuestName, setDescGuestName] = useState("");
+  const [descGuestLinks, setDescGuestLinks] = useState("");
+  const [descCallToAction, setDescCallToAction] = useState("");
+  const [descHashtags, setDescHashtags] = useState<string[]>([]);
+  const [descHashtagInput, setDescHashtagInput] = useState("");
+  const [descShowGuestSection, setDescShowGuestSection] = useState(false);
+  const [descShowOptionsSection, setDescShowOptionsSection] = useState(false);
+
   const transcriptRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [useLocalStorage, setUseLocalStorage] = useState(true);
@@ -519,6 +529,146 @@ export default function VideoDetailPage() {
     await navigator.clipboard.writeText(video.transcript.fullText);
     setCopiedTranscript(true);
     setTimeout(() => setCopiedTranscript(false), 2000);
+  };
+
+  const handleGenerateDescription = async () => {
+    if (!video?.transcript?.fullText) return;
+
+    setShowDescriptionModal(false);
+    setIsGenerating("Create Website Description");
+
+    // Build the prompt based on user inputs
+    let prompt = `Generate a YouTube video description for this transcript.
+
+**Video Title:** ${video.title}
+
+**Requirements:**`;
+
+    if (descIncludeChapters) {
+      prompt += `
+- Include chapter timestamps based on topic transitions in the transcript`;
+    }
+
+    if (descGuestName) {
+      prompt += `
+- This video features a guest: ${descGuestName}
+- Include a brief guest bio based on how they're introduced in the transcript`;
+      if (descGuestLinks) {
+        prompt += `
+- Guest social links to include: ${descGuestLinks}`;
+      }
+    }
+
+    if (descCallToAction) {
+      prompt += `
+- Include this call to action: ${descCallToAction}`;
+    } else {
+      prompt += `
+- Include a call to action (subscribe, like, comment)`;
+    }
+
+    if (descHashtags.length > 0) {
+      prompt += `
+- Include these hashtags: ${descHashtags.map(h => `#${h}`).join(" ")}`;
+    }
+
+    prompt += `
+
+**Format the description as:**
+1. Opening hook (first 2 lines - shown before "Show more")
+2. Brief summary of what viewers will learn
+3. Key topics covered${descIncludeChapters ? " with timestamps" : ""}
+${descGuestName ? "4. About the guest section" : ""}
+${descCallToAction || "4."} Call to action
+${descHashtags.length > 0 ? "- Hashtags at the end" : ""}
+
+Keep it between 150-300 words. Make it SEO-friendly and engaging.`;
+
+    try {
+      const response = await fetch(`/api/admin/videos/${videoId}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: prompt,
+          history: [],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate content");
+      }
+
+      const data = await response.json();
+
+      // Save to Supabase if enabled
+      if (!useLocalStorage) {
+        try {
+          const saveResponse = await fetch(`/api/user/videos/${videoId}/notes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: "Create Website Description",
+              type: "description",
+              content: data.message,
+            }),
+          });
+          const saveData = await saveResponse.json();
+          if (saveData.note) {
+            const newNote: Note = {
+              id: saveData.note.id,
+              title: saveData.note.title,
+              type: saveData.note.type,
+              content: saveData.note.content,
+              createdAt: saveData.note.created_at,
+            };
+            setNotes((prev) => [newNote, ...prev]);
+            setSelectedNote(newNote);
+          }
+        } catch (saveError) {
+          console.error("Failed to save note to Supabase:", saveError);
+        }
+      } else {
+        // Save to localStorage
+        const newNote: Note = {
+          id: Date.now().toString(),
+          title: "Create Website Description",
+          type: "description",
+          content: data.message,
+          createdAt: new Date().toISOString(),
+        };
+        setNotes((prev) => [newNote, ...prev]);
+        setSelectedNote(newNote);
+
+        const storageKey = `video-notes-${videoId}`;
+        const existingNotes = JSON.parse(localStorage.getItem(storageKey) || "[]");
+        localStorage.setItem(storageKey, JSON.stringify([newNote, ...existingNotes]));
+      }
+
+      // Reset form
+      setDescIncludeChapters(false);
+      setDescGuestName("");
+      setDescGuestLinks("");
+      setDescCallToAction("");
+      setDescHashtags([]);
+      setDescShowGuestSection(false);
+      setDescShowOptionsSection(false);
+    } catch (error) {
+      console.error("Error generating description:", error);
+    } finally {
+      setIsGenerating(null);
+    }
+  };
+
+  const handleAddHashtag = () => {
+    const tag = descHashtagInput.trim().replace(/^#/, "");
+    if (tag && !descHashtags.includes(tag)) {
+      setDescHashtags([...descHashtags, tag]);
+    }
+    setDescHashtagInput("");
+  };
+
+  const handleRemoveHashtag = (tag: string) => {
+    setDescHashtags(descHashtags.filter((t) => t !== tag));
   };
 
   const handleContentAction = async (action: string) => {
@@ -1826,12 +1976,12 @@ Maintain the speaker's perspective and tone. Do not editorialize or add outside 
         </div>
       )}
 
-      {/* Description Options Modal */}
+      {/* Description Form Modal */}
       {showDescriptionModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--surface)] rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+          <div className="bg-[var(--surface)] rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
                 <PencilIcon />
                 <h3 className="text-lg font-semibold text-[var(--text-primary)]">Generate Description</h3>
@@ -1844,61 +1994,177 @@ Maintain the speaker's perspective and tone. Do not editorialize or add outside 
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-4 space-y-2">
-              <button
-                onClick={() => {
-                  setShowDescriptionModal(false);
-                  handleContentAction("Create Website Description");
-                }}
-                className="w-full px-4 py-4 text-left hover:bg-[var(--surface-hover)] rounded-xl transition-colors"
-              >
-                <div className="font-medium text-[var(--text-primary)]">Standard Description</div>
-                <div className="text-sm text-[var(--text-muted)]">Hook, summary, topics & call to action</div>
-              </button>
+            {/* Modal Content - Scrollable */}
+            <div className="p-6 space-y-5 overflow-y-auto flex-1">
+              {/* Video Details Section */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-[var(--text-secondary)] uppercase tracking-wide">Video Details</h4>
 
-              <button
-                onClick={() => {
-                  setShowDescriptionModal(false);
-                  handleContentAction("Description: SEO Optimized");
-                }}
-                className="w-full px-4 py-4 text-left hover:bg-[var(--surface-hover)] rounded-xl transition-colors"
-              >
-                <div className="font-medium text-[var(--text-primary)]">SEO Optimized</div>
-                <div className="text-sm text-[var(--text-muted)]">Keyword-rich with searchable terms</div>
-              </button>
+                {/* Video Title */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Video Title</label>
+                  <input
+                    type="text"
+                    value={video?.title || ""}
+                    readOnly
+                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] text-sm"
+                  />
+                </div>
 
-              <button
-                onClick={() => {
-                  setShowDescriptionModal(false);
-                  handleContentAction("Description: With Chapters");
-                }}
-                className="w-full px-4 py-4 text-left hover:bg-[var(--surface-hover)] rounded-xl transition-colors"
-              >
-                <div className="font-medium text-[var(--text-primary)]">With Chapters</div>
-                <div className="text-sm text-[var(--text-muted)]">Auto-generated timestamp chapters</div>
-              </button>
+                {/* Transcript Preview */}
+                <div>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Transcript Preview</label>
+                  <textarea
+                    value={video?.transcript?.fullText?.slice(0, 500) + (video?.transcript?.fullText && video.transcript.fullText.length > 500 ? "..." : "") || ""}
+                    readOnly
+                    rows={4}
+                    className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--text-secondary)] text-sm resize-none"
+                  />
+                </div>
 
-              <button
-                onClick={() => {
-                  setShowDescriptionModal(false);
-                  handleContentAction("Description: With Guest Info");
-                }}
-                className="w-full px-4 py-4 text-left hover:bg-[var(--surface-hover)] rounded-xl transition-colors"
-              >
-                <div className="font-medium text-[var(--text-primary)]">With Guest Info</div>
-                <div className="text-sm text-[var(--text-muted)]">Guest bio, social links & episode summary</div>
-              </button>
+                {/* Include Chapters Checkbox */}
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={descIncludeChapters}
+                    onChange={(e) => setDescIncludeChapters(e.target.checked)}
+                    className="w-5 h-5 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]"
+                  />
+                  <span className="text-sm text-[var(--text-primary)]">Include chapter timestamps</span>
+                </label>
+              </div>
 
+              {/* Guest Details Section - Collapsible */}
+              <div className="border border-[var(--border)] rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setDescShowGuestSection(!descShowGuestSection)}
+                  className="w-full px-4 py-3 flex items-center justify-between bg-[var(--background)] hover:bg-[var(--surface-hover)] transition-colors"
+                >
+                  <span className="text-sm font-medium text-[var(--text-primary)]">Guest Details (Optional)</span>
+                  <svg
+                    className={`w-5 h-5 text-[var(--text-secondary)] transition-transform ${descShowGuestSection ? "rotate-180" : ""}`}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+                {descShowGuestSection && (
+                  <div className="p-4 space-y-4 border-t border-[var(--border)]">
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Guest Name</label>
+                      <input
+                        type="text"
+                        value={descGuestName}
+                        onChange={(e) => setDescGuestName(e.target.value)}
+                        placeholder="Enter guest name"
+                        className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] text-sm placeholder:text-[var(--text-muted)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Guest Links</label>
+                      <input
+                        type="text"
+                        value={descGuestLinks}
+                        onChange={(e) => setDescGuestLinks(e.target.value)}
+                        placeholder="Twitter, LinkedIn, website URLs"
+                        className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] text-sm placeholder:text-[var(--text-muted)]"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Additional Options Section - Collapsible */}
+              <div className="border border-[var(--border)] rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setDescShowOptionsSection(!descShowOptionsSection)}
+                  className="w-full px-4 py-3 flex items-center justify-between bg-[var(--background)] hover:bg-[var(--surface-hover)] transition-colors"
+                >
+                  <span className="text-sm font-medium text-[var(--text-primary)]">Additional Options (Optional)</span>
+                  <svg
+                    className={`w-5 h-5 text-[var(--text-secondary)] transition-transform ${descShowOptionsSection ? "rotate-180" : ""}`}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+                {descShowOptionsSection && (
+                  <div className="p-4 space-y-4 border-t border-[var(--border)]">
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Call to Action</label>
+                      <input
+                        type="text"
+                        value={descCallToAction}
+                        onChange={(e) => setDescCallToAction(e.target.value)}
+                        placeholder="e.g., Subscribe for more videos!"
+                        className="w-full px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] text-sm placeholder:text-[var(--text-muted)]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Hashtags</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={descHashtagInput}
+                          onChange={(e) => setDescHashtagInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddHashtag();
+                            }
+                          }}
+                          placeholder="Add hashtag"
+                          className="flex-1 px-4 py-3 bg-[var(--background)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] text-sm placeholder:text-[var(--text-muted)]"
+                        />
+                        <button
+                          onClick={handleAddHashtag}
+                          className="px-4 py-3 bg-[var(--accent)] text-white rounded-xl text-sm font-medium hover:bg-[var(--accent-hover)] transition-colors"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      {descHashtags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {descHashtags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-[var(--accent)]/10 text-[var(--accent)] rounded-full text-sm"
+                            >
+                              #{tag}
+                              <button
+                                onClick={() => handleRemoveHashtag(tag)}
+                                className="ml-1 hover:text-[var(--accent-hover)]"
+                              >
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <line x1="18" x2="6" y1="6" y2="18" />
+                                  <line x1="6" x2="18" y1="6" y2="18" />
+                                </svg>
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-[var(--border)] flex-shrink-0">
               <button
-                onClick={() => {
-                  setShowDescriptionModal(false);
-                  handleContentAction("Description: Short Form");
-                }}
-                className="w-full px-4 py-4 text-left hover:bg-[var(--surface-hover)] rounded-xl transition-colors"
+                onClick={handleGenerateDescription}
+                disabled={!video?.transcript?.fullText}
+                className="w-full px-6 py-3 bg-[var(--accent)] text-white rounded-xl font-medium hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                <div className="font-medium text-[var(--text-primary)]">Short Form</div>
-                <div className="text-sm text-[var(--text-muted)]">Under 100 words for quick videos</div>
+                <SparklesIcon />
+                Generate Description
               </button>
             </div>
           </div>
