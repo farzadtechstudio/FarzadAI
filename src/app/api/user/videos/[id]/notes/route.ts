@@ -3,7 +3,6 @@ import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
 import { createServerClient } from "@/lib/supabase";
 
-const USE_SUPABASE = process.env.USE_SUPABASE === "true";
 const JWT_SECRET = process.env.JWT_SECRET || "local-dev-secret-change-in-production";
 
 interface JWTPayload {
@@ -54,14 +53,10 @@ export async function GET(
   try {
     const videoId = params.id;
 
-    if (!USE_SUPABASE) {
-      return NextResponse.json({ notes: [], useLocalStorage: true });
-    }
-
     // Get user context from session or auth_token
     const userContext = await getUserContext();
     if (!userContext) {
-      return NextResponse.json({ notes: [], useLocalStorage: true });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { userId, tenantId } = userContext;
@@ -77,7 +72,7 @@ export async function GET(
 
     if (error) {
       console.error("Error fetching notes:", error);
-      return NextResponse.json({ notes: [], useLocalStorage: true });
+      return NextResponse.json({ error: "Failed to fetch notes" }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -88,11 +83,10 @@ export async function GET(
         content: n.content,
         createdAt: n.created_at,
       })),
-      useLocalStorage: false,
     });
   } catch (error) {
     console.error("Notes GET error:", error);
-    return NextResponse.json({ notes: [], useLocalStorage: true });
+    return NextResponse.json({ error: "Failed to fetch notes" }, { status: 500 });
   }
 }
 
@@ -113,34 +107,10 @@ export async function POST(
       );
     }
 
-    if (!USE_SUPABASE) {
-      return NextResponse.json({
-        success: true,
-        useLocalStorage: true,
-        note: {
-          id: Date.now().toString(),
-          title,
-          type,
-          content,
-          createdAt: new Date().toISOString(),
-        }
-      });
-    }
-
     // Get user context from session or auth_token
     const userContext = await getUserContext();
     if (!userContext) {
-      return NextResponse.json({
-        success: true,
-        useLocalStorage: true,
-        note: {
-          id: Date.now().toString(),
-          title,
-          type,
-          content,
-          createdAt: new Date().toISOString(),
-        }
-      });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { userId, tenantId } = userContext;
@@ -161,17 +131,7 @@ export async function POST(
 
     if (error) {
       console.error("Error saving note:", error);
-      return NextResponse.json({
-        success: true,
-        useLocalStorage: true,
-        note: {
-          id: Date.now().toString(),
-          title,
-          type,
-          content,
-          createdAt: new Date().toISOString(),
-        }
-      });
+      return NextResponse.json({ error: "Failed to save note" }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -183,11 +143,10 @@ export async function POST(
         content: data.content,
         createdAt: data.created_at,
       },
-      useLocalStorage: false,
     });
   } catch (error) {
     console.error("Notes POST error:", error);
-    return NextResponse.json({ success: false, error: "Failed to save note" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save note" }, { status: 500 });
   }
 }
 
@@ -208,14 +167,10 @@ export async function DELETE(
       );
     }
 
-    if (!USE_SUPABASE) {
-      return NextResponse.json({ success: true, useLocalStorage: true });
-    }
-
     // Get user context from session or auth_token
     const userContext = await getUserContext();
     if (!userContext) {
-      return NextResponse.json({ success: true, useLocalStorage: true });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { userId, tenantId } = userContext;
@@ -231,12 +186,12 @@ export async function DELETE(
 
     if (error) {
       console.error("Error deleting note:", error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, useLocalStorage: false });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Notes DELETE error:", error);
-    return NextResponse.json({ success: true, useLocalStorage: true });
+    return NextResponse.json({ error: "Failed to delete note" }, { status: 500 });
   }
 }

@@ -317,104 +317,44 @@ export default function VideoDetailPage() {
 
   const transcriptRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const [useLocalStorage, setUseLocalStorage] = useState(true);
 
-  // Load chat messages - try Supabase first, fall back to localStorage
+  // Load chat messages from Supabase
   useEffect(() => {
     if (!videoId) return;
 
     const loadMessages = async () => {
       try {
         const response = await fetch(`/api/user/videos/${videoId}/messages`);
-        const data = await response.json();
-
-        if (data.useLocalStorage) {
-          setUseLocalStorage(true);
-          // Load from localStorage
-          const savedChat = localStorage.getItem(`chat-${videoId}`);
-          if (savedChat) {
-            try {
-              const parsed = JSON.parse(savedChat);
-              setChatMessages(parsed);
-            } catch (e) {
-              console.error("Failed to parse saved chat:", e);
-            }
-          }
-        } else {
-          setUseLocalStorage(false);
+        if (response.ok) {
+          const data = await response.json();
           setChatMessages(data.messages || []);
         }
       } catch (error) {
         console.error("Error loading messages:", error);
-        // Fall back to localStorage
-        setUseLocalStorage(true);
-        const savedChat = localStorage.getItem(`chat-${videoId}`);
-        if (savedChat) {
-          try {
-            setChatMessages(JSON.parse(savedChat));
-          } catch (e) {
-            console.error("Failed to parse saved chat:", e);
-          }
-        }
       }
     };
 
     loadMessages();
   }, [videoId]);
 
-  // Save chat messages to localStorage only if using localStorage mode
-  useEffect(() => {
-    if (videoId && chatMessages.length > 0 && useLocalStorage) {
-      localStorage.setItem(`chat-${videoId}`, JSON.stringify(chatMessages));
-    }
-  }, [videoId, chatMessages, useLocalStorage]);
-
-  // Load notes - try Supabase first, fall back to localStorage
+  // Load notes from Supabase
   useEffect(() => {
     if (!videoId) return;
 
     const loadNotes = async () => {
       try {
         const response = await fetch(`/api/user/videos/${videoId}/notes`);
-        const data = await response.json();
-
-        if (data.useLocalStorage) {
-          // Load from localStorage
-          const savedNotes = localStorage.getItem(`notes-${videoId}`);
-          if (savedNotes) {
-            try {
-              const parsed = JSON.parse(savedNotes);
-              setNotes(parsed);
-            } catch (e) {
-              console.error("Failed to parse saved notes:", e);
-            }
-          }
-        } else {
+        if (response.ok) {
+          const data = await response.json();
           setNotes(data.notes || []);
         }
       } catch (error) {
         console.error("Error loading notes:", error);
-        // Fall back to localStorage
-        const savedNotes = localStorage.getItem(`notes-${videoId}`);
-        if (savedNotes) {
-          try {
-            setNotes(JSON.parse(savedNotes));
-          } catch (e) {
-            console.error("Failed to parse saved notes:", e);
-          }
-        }
       }
     };
 
     loadNotes();
   }, [videoId]);
-
-  // Save notes to localStorage only if using localStorage mode
-  useEffect(() => {
-    if (videoId && notes.length > 0 && useLocalStorage) {
-      localStorage.setItem(`notes-${videoId}`, JSON.stringify(notes));
-    }
-  }, [videoId, notes, useLocalStorage]);
 
   useEffect(() => {
     if (videoId) {
@@ -431,7 +371,6 @@ export default function VideoDetailPage() {
 
   // Helper to save message to Supabase (non-blocking)
   const saveMessageToSupabase = async (role: "user" | "assistant", content: string) => {
-    if (useLocalStorage) return;
     try {
       await fetch(`/api/user/videos/${videoId}/messages`, {
         method: "POST",
@@ -600,48 +539,31 @@ Keep it between 150-300 words. Make it SEO-friendly and engaging.`;
 
       const data = await response.json();
 
-      // Save to Supabase if enabled
-      if (!useLocalStorage) {
-        try {
-          const saveResponse = await fetch(`/api/user/videos/${videoId}/notes`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: "Create Website Description",
-              type: "description",
-              content: data.message,
-            }),
-          });
-          const saveData = await saveResponse.json();
-          if (saveData.note) {
-            const newNote: Note = {
-              id: saveData.note.id,
-              title: saveData.note.title,
-              type: saveData.note.type,
-              content: saveData.note.content,
-              createdAt: saveData.note.created_at,
-            };
-            setNotes((prev) => [newNote, ...prev]);
-            setSelectedNote(newNote);
-          }
-        } catch (saveError) {
-          console.error("Failed to save note to Supabase:", saveError);
+      // Save to Supabase
+      try {
+        const saveResponse = await fetch(`/api/user/videos/${videoId}/notes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: "Create Website Description",
+            type: "description",
+            content: data.message,
+          }),
+        });
+        const saveData = await saveResponse.json();
+        if (saveData.note) {
+          const newNote: Note = {
+            id: saveData.note.id,
+            title: saveData.note.title,
+            type: saveData.note.type,
+            content: saveData.note.content,
+            createdAt: saveData.note.createdAt,
+          };
+          setNotes((prev) => [newNote, ...prev]);
+          setSelectedNote(newNote);
         }
-      } else {
-        // Save to localStorage
-        const newNote: Note = {
-          id: Date.now().toString(),
-          title: "Create Website Description",
-          type: "description",
-          content: data.message,
-          createdAt: new Date().toISOString(),
-        };
-        setNotes((prev) => [newNote, ...prev]);
-        setSelectedNote(newNote);
-
-        const storageKey = `video-notes-${videoId}`;
-        const existingNotes = JSON.parse(localStorage.getItem(storageKey) || "[]");
-        localStorage.setItem(storageKey, JSON.stringify([newNote, ...existingNotes]));
+      } catch (saveError) {
+        console.error("Failed to save note:", saveError);
       }
 
       // Reset form
@@ -834,47 +756,32 @@ Maintain the speaker's perspective and tone. Do not editorialize or add outside 
 
       const data = await response.json();
 
-      // Save to Supabase if enabled
-      if (!useLocalStorage) {
-        try {
-          const saveResponse = await fetch(`/api/user/videos/${videoId}/notes`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: action,
-              type: typeMap[action] || "summary",
-              content: data.message,
-            }),
-          });
-          const saveData = await saveResponse.json();
-          if (saveData.note) {
-            const newNote: Note = {
-              id: saveData.note.id,
-              title: saveData.note.title,
-              type: saveData.note.type,
-              content: saveData.note.content,
-              createdAt: saveData.note.createdAt,
-            };
-            setNotes((prev) => [newNote, ...prev]);
-            setSelectedNote(newNote);
-            return;
-          }
-        } catch (error) {
-          console.error("Error saving note to Supabase:", error);
+      // Save to Supabase
+      try {
+        const saveResponse = await fetch(`/api/user/videos/${videoId}/notes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: action,
+            type: typeMap[action] || "summary",
+            content: data.message,
+          }),
+        });
+        const saveData = await saveResponse.json();
+        if (saveData.note) {
+          const newNote: Note = {
+            id: saveData.note.id,
+            title: saveData.note.title,
+            type: saveData.note.type,
+            content: saveData.note.content,
+            createdAt: saveData.note.createdAt,
+          };
+          setNotes((prev) => [newNote, ...prev]);
+          setSelectedNote(newNote);
         }
+      } catch (error) {
+        console.error("Error saving note:", error);
       }
-
-      // Fallback to localStorage
-      const newNote: Note = {
-        id: Date.now().toString(),
-        title: action,
-        type: typeMap[action] || "summary",
-        content: data.message,
-        createdAt: new Date().toISOString(),
-      };
-
-      setNotes((prev) => [newNote, ...prev]);
-      setSelectedNote(newNote);
     } catch (error) {
       console.error("Content generation error:", error);
     } finally {
@@ -1653,16 +1560,12 @@ Maintain the speaker's perspective and tone. Do not editorialize or add outside 
                   <button
                     onClick={async () => {
                       setChatMessages([]);
-                      if (useLocalStorage) {
-                        localStorage.removeItem(`chat-${videoId}`);
-                      } else {
-                        try {
-                          await fetch(`/api/user/videos/${videoId}/messages`, {
-                            method: "DELETE",
-                          });
-                        } catch (error) {
-                          console.error("Error clearing chat from Supabase:", error);
-                        }
+                      try {
+                        await fetch(`/api/user/videos/${videoId}/messages`, {
+                          method: "DELETE",
+                        });
+                      } catch (error) {
+                        console.error("Error clearing chat:", error);
                       }
                     }}
                     className="px-3 py-1.5 text-xs rounded-lg hover:bg-[var(--background)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
@@ -1934,16 +1837,12 @@ Maintain the speaker's perspective and tone. Do not editorialize or add outside 
                     setNotes((prev) => prev.filter((n) => n.id !== noteIdToDelete));
                     setSelectedNote(null);
 
-                    if (useLocalStorage) {
-                      localStorage.setItem(`notes-${videoId}`, JSON.stringify(notes.filter((n) => n.id !== noteIdToDelete)));
-                    } else {
-                      try {
-                        await fetch(`/api/user/videos/${videoId}/notes?noteId=${noteIdToDelete}`, {
-                          method: "DELETE",
-                        });
-                      } catch (error) {
-                        console.error("Error deleting note from Supabase:", error);
-                      }
+                    try {
+                      await fetch(`/api/user/videos/${videoId}/notes?noteId=${noteIdToDelete}`, {
+                        method: "DELETE",
+                      });
+                    } catch (error) {
+                      console.error("Error deleting note:", error);
                     }
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-500"
