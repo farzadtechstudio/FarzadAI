@@ -1,8 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 import { createServerClient } from "@/lib/supabase";
 
 const USE_SUPABASE = process.env.USE_SUPABASE === "true";
+const JWT_SECRET = process.env.JWT_SECRET || "local-dev-secret-change-in-production";
+
+interface JWTPayload {
+  userId: string;
+  email: string;
+  role: string;
+  tenantId: string;
+}
+
+// Helper to get user context from either session cookie or auth_token JWT
+async function getUserContext(): Promise<{ userId: string; tenantId: string } | null> {
+  const cookieStore = await cookies();
+
+  // Try session cookie first (public user)
+  const sessionCookie = cookieStore.get("session");
+  if (sessionCookie?.value) {
+    try {
+      const session = JSON.parse(sessionCookie.value);
+      if (session.userId && session.tenantId) {
+        return { userId: session.userId, tenantId: session.tenantId };
+      }
+    } catch {
+      // Continue to try auth_token
+    }
+  }
+
+  // Try auth_token JWT (admin user)
+  const authToken = cookieStore.get("auth_token");
+  if (authToken?.value) {
+    try {
+      const decoded = jwt.verify(authToken.value, JWT_SECRET) as JWTPayload;
+      if (decoded.userId && decoded.tenantId) {
+        return { userId: decoded.userId, tenantId: decoded.tenantId };
+      }
+    } catch {
+      // JWT invalid
+    }
+  }
+
+  return null;
+}
 
 // GET - Fetch user's notes for a video
 export async function GET(
@@ -16,24 +58,13 @@ export async function GET(
       return NextResponse.json({ notes: [], useLocalStorage: true });
     }
 
-    // Get user from session cookie
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get("session");
-
-    if (!sessionCookie?.value) {
+    // Get user context from session or auth_token
+    const userContext = await getUserContext();
+    if (!userContext) {
       return NextResponse.json({ notes: [], useLocalStorage: true });
     }
 
-    let session;
-    try {
-      session = JSON.parse(sessionCookie.value);
-    } catch {
-      return NextResponse.json({ notes: [], useLocalStorage: true });
-    }
-
-    const userId = session.userId;
-    const tenantId = session.tenantId || "local";
-
+    const { userId, tenantId } = userContext;
     const supabase = createServerClient();
 
     const { data: notes, error } = await supabase
@@ -96,11 +127,9 @@ export async function POST(
       });
     }
 
-    // Get user from session cookie
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get("session");
-
-    if (!sessionCookie?.value) {
+    // Get user context from session or auth_token
+    const userContext = await getUserContext();
+    if (!userContext) {
       return NextResponse.json({
         success: true,
         useLocalStorage: true,
@@ -114,26 +143,7 @@ export async function POST(
       });
     }
 
-    let session;
-    try {
-      session = JSON.parse(sessionCookie.value);
-    } catch {
-      return NextResponse.json({
-        success: true,
-        useLocalStorage: true,
-        note: {
-          id: Date.now().toString(),
-          title,
-          type,
-          content,
-          createdAt: new Date().toISOString(),
-        }
-      });
-    }
-
-    const userId = session.userId;
-    const tenantId = session.tenantId || "local";
-
+    const { userId, tenantId } = userContext;
     const supabase = createServerClient();
 
     const { data, error } = await supabase
@@ -202,24 +212,13 @@ export async function DELETE(
       return NextResponse.json({ success: true, useLocalStorage: true });
     }
 
-    // Get user from session cookie
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get("session");
-
-    if (!sessionCookie?.value) {
+    // Get user context from session or auth_token
+    const userContext = await getUserContext();
+    if (!userContext) {
       return NextResponse.json({ success: true, useLocalStorage: true });
     }
 
-    let session;
-    try {
-      session = JSON.parse(sessionCookie.value);
-    } catch {
-      return NextResponse.json({ success: true, useLocalStorage: true });
-    }
-
-    const userId = session.userId;
-    const tenantId = session.tenantId || "local";
-
+    const { userId, tenantId } = userContext;
     const supabase = createServerClient();
 
     const { error } = await supabase
