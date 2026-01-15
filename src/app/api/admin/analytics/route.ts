@@ -55,14 +55,17 @@ export async function GET(request: NextRequest) {
         break;
     }
 
-    // Fetch videos count with date filter
+    // Fetch imported videos count (only videos with transcripts imported)
+    // Use updated_at for date filter since that reflects when the import happened
     let videosQuery = supabase
       .from("videos")
-      .select("id, title, created_at, ai_analysis", { count: "exact" })
-      .eq("tenant_id", tenantId);
+      .select("id, title, created_at, updated_at, ai_analysis", { count: "exact" })
+      .eq("tenant_id", tenantId)
+      .eq("is_imported", true);
 
     if (startDate) {
-      videosQuery = videosQuery.gte("created_at", startDate.toISOString());
+      // Filter by updated_at which is when the video was imported (is_imported set to true)
+      videosQuery = videosQuery.gte("updated_at", startDate.toISOString());
     }
 
     const { data: videos, count: importedVideos } = await videosQuery;
@@ -140,13 +143,14 @@ export async function GET(request: NextRequest) {
     // Build recent activity from filtered data
     const recentActivity: { type: string; title: string; date: string; timestamp: number }[] = [];
 
-    // Add recent videos
+    // Add recent videos (use updated_at which reflects import date)
     videos?.forEach((video) => {
+      const importDate = video.updated_at || video.created_at;
       recentActivity.push({
         type: "video",
         title: `Imported: ${video.title}`,
-        date: formatRelativeDate(new Date(video.created_at)),
-        timestamp: new Date(video.created_at).getTime(),
+        date: formatRelativeDate(new Date(importDate)),
+        timestamp: new Date(importDate).getTime(),
       });
     });
 
