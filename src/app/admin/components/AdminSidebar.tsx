@@ -44,13 +44,6 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: "Customize",
-    items: [
-      { id: "branding", label: "Branding", icon: PaletteIcon, href: "/admin/branding" },
-      { id: "topics", label: "Topic Cards", icon: GridIcon, href: "/admin/topics" },
-    ],
-  },
-  {
     title: "Data Source",
     items: [
       { id: "youtube", label: "YouTube Feed", icon: YouTubeIcon, href: "/admin/youtube" },
@@ -58,8 +51,10 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: "Configuration",
+    title: "Settings",
     items: [
+      { id: "branding", label: "Branding", icon: PaletteIcon, href: "/admin/branding" },
+      { id: "topics", label: "Topic Cards", icon: GridIcon, href: "/admin/topics" },
       { id: "ai", label: "AI Settings", icon: BrainIcon, href: "/admin/ai" },
       { id: "team", label: "Team", icon: UsersIcon, href: "/admin/team" },
     ],
