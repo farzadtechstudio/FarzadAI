@@ -7,12 +7,10 @@ interface AnalyticsDashboardProps {
 }
 
 interface AnalyticsData {
-  totalVideos: number;
+  importedVideos: number;
   totalChats: number;
   totalMessages: number;
   totalNotes: number;
-  videosThisMonth: number;
-  chatsThisWeek: number;
   popularTopics: { name: string; count: number }[];
   recentActivity: { type: string; title: string; date: string }[];
   contentGenerated: {
@@ -27,7 +25,7 @@ interface AnalyticsData {
 export default function AnalyticsDashboard({ tenantId }: AnalyticsDashboardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [timeRange, setTimeRange] = useState<"week" | "month" | "all">("month");
+  const [timeRange, setTimeRange] = useState<"today" | "week" | "month" | "year" | "all">("all");
 
   useEffect(() => {
     loadAnalytics();
@@ -58,12 +56,10 @@ export default function AnalyticsDashboard({ tenantId }: AnalyticsDashboardProps
 
   // Default values if no data
   const data = analytics || {
-    totalVideos: 0,
+    importedVideos: 0,
     totalChats: 0,
     totalMessages: 0,
     totalNotes: 0,
-    videosThisMonth: 0,
-    chatsThisWeek: 0,
     popularTopics: [],
     recentActivity: [],
     contentGenerated: {
@@ -73,6 +69,16 @@ export default function AnalyticsDashboard({ tenantId }: AnalyticsDashboardProps
       quotes: 0,
       highlights: 0,
     },
+  };
+
+  const getTimeRangeLabel = () => {
+    switch (timeRange) {
+      case "today": return "Today";
+      case "week": return "This Week";
+      case "month": return "This Month";
+      case "year": return "This Year";
+      case "all": return "All Time";
+    }
   };
 
   return (
@@ -88,7 +94,7 @@ export default function AnalyticsDashboard({ tenantId }: AnalyticsDashboardProps
 
         {/* Time Range Selector */}
         <div className="flex gap-2">
-          {(["week", "month", "all"] as const).map((range) => (
+          {(["today", "week", "month", "year", "all"] as const).map((range) => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
@@ -98,18 +104,22 @@ export default function AnalyticsDashboard({ tenantId }: AnalyticsDashboardProps
                   : "bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
               }`}
             >
-              {range === "week" ? "This Week" : range === "month" ? "This Month" : "All Time"}
+              {range === "today" ? "Today" : range === "week" ? "Week" : range === "month" ? "Month" : range === "year" ? "Year" : "All"}
             </button>
           ))}
         </div>
       </div>
 
+      {/* Period Label */}
+      <p className="text-sm text-[var(--text-muted)]">
+        Showing data for: <span className="font-medium text-[var(--text-secondary)]">{getTimeRangeLabel()}</span>
+      </p>
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total Videos"
-          value={data.totalVideos}
-          subtitle={`${data.videosThisMonth} this month`}
+          title="Imported Videos"
+          value={data.importedVideos}
           icon={
             <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
               <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
@@ -121,7 +131,6 @@ export default function AnalyticsDashboard({ tenantId }: AnalyticsDashboardProps
         <StatCard
           title="Chat Sessions"
           value={data.totalChats}
-          subtitle={`${data.chatsThisWeek} this week`}
           icon={
             <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />

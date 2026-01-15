@@ -3,7 +3,7 @@ import { USE_SUPABASE } from "@/lib/config";
 
 export async function GET(request: NextRequest) {
   const tenantId = request.nextUrl.searchParams.get("tenantId");
-  const range = request.nextUrl.searchParams.get("range") || "month";
+  const range = request.nextUrl.searchParams.get("range") || "all";
 
   if (!tenantId) {
     return NextResponse.json({ error: "Tenant ID required" }, { status: 400 });
@@ -12,12 +12,10 @@ export async function GET(request: NextRequest) {
   // Local mode - return empty analytics
   if (!USE_SUPABASE || tenantId === "local") {
     return NextResponse.json({
-      totalVideos: 0,
+      importedVideos: 0,
       totalChats: 0,
       totalMessages: 0,
       totalNotes: 0,
-      videosThisMonth: 0,
-      chatsThisWeek: 0,
       popularTopics: [],
       recentActivity: [],
       contentGenerated: {
@@ -34,51 +32,61 @@ export async function GET(request: NextRequest) {
   try {
     const { supabase } = await import("@/lib/supabase");
 
-    // Calculate date ranges
+    // Calculate date range based on filter
     const now = new Date();
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
     let startDate: Date | null = null;
-    if (range === "week") {
-      startDate = weekAgo;
-    } else if (range === "month") {
-      startDate = monthAgo;
+
+    switch (range) {
+      case "today":
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case "week":
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case "month":
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case "year":
+        startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        break;
+      case "all":
+      default:
+        startDate = null;
+        break;
     }
 
-    // Fetch videos count
-    const videosQuery = supabase
+    // Fetch videos count with date filter
+    let videosQuery = supabase
       .from("videos")
       .select("id, title, created_at, ai_analysis", { count: "exact" })
       .eq("tenant_id", tenantId);
 
-    const { data: videos, count: totalVideos } = await videosQuery;
+    if (startDate) {
+      videosQuery = videosQuery.gte("created_at", startDate.toISOString());
+    }
 
-    // Count videos this month
-    const videosThisMonth = videos?.filter(
-      (v) => new Date(v.created_at) > monthAgo
-    ).length || 0;
+    const { data: videos, count: importedVideos } = await videosQuery;
 
-    // Fetch messages count
-    const messagesQuery = supabase
+    // Fetch messages count with date filter
+    let messagesQuery = supabase
       .from("video_messages")
       .select("id, created_at", { count: "exact" })
       .eq("tenant_id", tenantId);
 
     if (startDate) {
-      messagesQuery.gte("created_at", startDate.toISOString());
+      messagesQuery = messagesQuery.gte("created_at", startDate.toISOString());
     }
 
     const { count: totalMessages } = await messagesQuery;
 
-    // Fetch notes with types
-    const notesQuery = supabase
+    // Fetch notes with types and date filter
+    let notesQuery = supabase
       .from("video_notes")
       .select("id, type, title, created_at", { count: "exact" })
       .eq("tenant_id", tenantId);
 
     if (startDate) {
-      notesQuery.gte("created_at", startDate.toISOString());
+      notesQuery = notesQuery.gte("created_at", startDate.toISOString());
     }
 
     const { data: notes, count: totalNotes } = await notesQuery;
@@ -92,22 +100,24 @@ export async function GET(request: NextRequest) {
       highlights: notes?.filter((n) => n.type === "highlights").length || 0,
     };
 
-    // Calculate unique chat sessions (approximate by counting distinct days with messages)
+    // Calculate unique chat sessions with date filter
+    let chatQuery = supabase
+      .from("video_messages")
+      .select("created_at")
+      .eq("tenant_id", tenantId)
+      .eq("role", "user");
+
+    if (startDate) {
+      chatQuery = chatQuery.gte("created_at", startDate.toISOString());
+    }
+
+    const { data: chatMessages } = await chatQuery;
     const chatDates = new Set(
-      (await supabase
-        .from("video_messages")
-        .select("created_at")
-        .eq("tenant_id", tenantId)
-        .eq("role", "user")
-      ).data?.map((m) => new Date(m.created_at).toDateString()) || []
+      chatMessages?.map((m) => new Date(m.created_at).toDateString()) || []
     );
-
     const totalChats = chatDates.size;
-    const chatsThisWeek = Array.from(chatDates).filter(
-      (d) => new Date(d) > weekAgo
-    ).length;
 
-    // Extract popular topics from video AI analysis
+    // Extract popular topics from video AI analysis (filtered videos)
     const topicCounts: Record<string, number> = {};
     videos?.forEach((video) => {
       const analysis = video.ai_analysis;
@@ -127,48 +137,44 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    // Build recent activity
-    const recentActivity: { type: string; title: string; date: string }[] = [];
+    // Build recent activity from filtered data
+    const recentActivity: { type: string; title: string; date: string; timestamp: number }[] = [];
 
     // Add recent videos
-    videos
-      ?.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 5)
-      .forEach((video) => {
-        recentActivity.push({
-          type: "video",
-          title: `Imported: ${video.title}`,
-          date: formatRelativeDate(new Date(video.created_at)),
-        });
+    videos?.forEach((video) => {
+      recentActivity.push({
+        type: "video",
+        title: `Imported: ${video.title}`,
+        date: formatRelativeDate(new Date(video.created_at)),
+        timestamp: new Date(video.created_at).getTime(),
       });
-
-    // Add recent notes
-    notes
-      ?.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 5)
-      .forEach((note) => {
-        recentActivity.push({
-          type: "note",
-          title: `Created ${note.type}: ${note.title}`,
-          date: formatRelativeDate(new Date(note.created_at)),
-        });
-      });
-
-    // Sort all activity by most recent
-    recentActivity.sort((a, b) => {
-      // Simple sorting - real implementation would parse dates
-      return 0;
     });
 
+    // Add recent notes
+    notes?.forEach((note) => {
+      recentActivity.push({
+        type: "note",
+        title: `Created ${note.type}: ${note.title}`,
+        date: formatRelativeDate(new Date(note.created_at)),
+        timestamp: new Date(note.created_at).getTime(),
+      });
+    });
+
+    // Sort by timestamp descending and take top 8
+    recentActivity.sort((a, b) => b.timestamp - a.timestamp);
+    const topActivity = recentActivity.slice(0, 8).map(({ type, title, date }) => ({
+      type,
+      title,
+      date,
+    }));
+
     return NextResponse.json({
-      totalVideos: totalVideos || 0,
+      importedVideos: importedVideos || 0,
       totalChats,
       totalMessages: totalMessages || 0,
       totalNotes: totalNotes || 0,
-      videosThisMonth,
-      chatsThisWeek,
       popularTopics,
-      recentActivity: recentActivity.slice(0, 8),
+      recentActivity: topActivity,
       contentGenerated,
     });
   } catch (error) {
