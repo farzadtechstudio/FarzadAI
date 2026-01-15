@@ -392,10 +392,6 @@ export default function YouTubeFeed({ tenantId }: YouTubeFeedProps) {
           )
         );
         setMessage({ type: "success", text: `Imported "${video.title}"` });
-        // Navigate to video detail page after short delay
-        setTimeout(() => {
-          router.push(`/admin/youtube/${video.video_id}`);
-        }, 500);
       } else {
         console.error("Import failed:", data);
         // Build detailed error message including debug info
