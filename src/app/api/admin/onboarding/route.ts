@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
   if (!USE_SUPABASE || tenantId === "local") {
     try {
       const config = await loadSetupConfig();
-      return NextResponse.json(config.voice_settings || {});
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return NextResponse.json((config as any)?.voice_settings || {});
     } catch {
       return NextResponse.json({});
     }

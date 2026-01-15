@@ -161,11 +161,15 @@ export default function OnboardingWizard({ tenantId }: OnboardingWizardProps) {
 
       if (response.ok) {
         const analysis = await response.json();
-        setData((prev) => ({
-          ...prev,
-          analyzedVoice: analysis,
-          toneKeywords: [...new Set([...prev.toneKeywords, ...(analysis.toneKeywords || [])])],
-        }));
+        setData((prev) => {
+          const combined = [...prev.toneKeywords, ...(analysis.toneKeywords || [])];
+          const unique = combined.filter((item, index) => combined.indexOf(item) === index);
+          return {
+            ...prev,
+            analyzedVoice: analysis,
+            toneKeywords: unique,
+          };
+        });
       }
     } catch (error) {
       console.error("Failed to analyze voice:", error);
