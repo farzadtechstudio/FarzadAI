@@ -11,9 +11,10 @@ import {
   HomeIcon,
   YouTubeIcon,
   WandIcon,
+  BarChartIcon,
 } from "./AdminIcons";
 
-type Tab = "branding" | "topics" | "youtube" | "knowledge" | "ai" | "team" | "onboarding";
+type Tab = "branding" | "topics" | "youtube" | "knowledge" | "ai" | "team" | "onboarding" | "analytics";
 
 interface AdminSidebarProps {
   activeTab: Tab;
@@ -39,6 +40,7 @@ const navSections: NavSection[] = [
   {
     items: [
       { id: "onboarding", label: "Onboarding", icon: WandIcon, href: "/admin/onboarding" },
+      { id: "analytics", label: "Analytics", icon: BarChartIcon, href: "/admin/analytics" },
     ],
   },
   {
